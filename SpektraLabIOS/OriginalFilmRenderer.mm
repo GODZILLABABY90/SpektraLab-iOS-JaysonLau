@@ -26,6 +26,45 @@ static NSString *SPKEngineError(spk_engine *engine) {
 
 @implementation OriginalFilmRenderer
 
+
++ (UIImage *)renderImageWithoutThrow:(UIImage *)image
+                           filmStock:(NSString *)filmStock
+                          printStock:(NSString *)printStock
+                          enableEdge:(BOOL)enableEdge
+                          edgeFormat:(NSString *)edgeFormat
+                          exposureEV:(double)exposureEV
+                         grainAmount:(double)grainAmount
+                      halationAmount:(double)halationAmount
+                            magenta:(double)magenta
+                             yellow:(double)yellow
+                       maxDimension:(NSInteger)maxDimension
+                       errorMessage:(NSMutableString *)errorMessage {
+    NSError *nativeError = nil;
+    UIImage *result = [self renderImage:image
+                              filmStock:filmStock
+                             printStock:printStock
+                             enableEdge:enableEdge
+                             edgeFormat:edgeFormat
+                             exposureEV:exposureEV
+                            grainAmount:grainAmount
+                         halationAmount:halationAmount
+                               magenta:magenta
+                                yellow:yellow
+                           maxDimension:maxDimension
+                                  error:&nativeError];
+    if (!result && errorMessage) {
+        NSString *message = @"Original engine returned no image";
+        if (nativeError && [nativeError isKindOfClass:[NSError class]]) {
+            message = nativeError.localizedDescription ?: message;
+        } else if (nativeError) {
+            message = @"Native renderer returned an invalid error object";
+        }
+        [errorMessage setString:message];
+    }
+    return result;
+}
+
+
 + (UIImage *)renderImage:(UIImage *)image
                filmStock:(NSString *)filmStock
               printStock:(NSString *)printStock
