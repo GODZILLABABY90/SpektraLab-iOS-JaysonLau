@@ -2,9 +2,9 @@ name: iOS unsigned IPA
 on:
   workflow_dispatch:
   push:
-    branches: [dev/ios-foundation, dev/film-presets-v02, dev/upstream-engine-port]
+    branches: [dev/ios-foundation, dev/film-presets-v02, dev/upstream-engine-port, dev/original-render-bridge]
   pull_request:
-    branches: [main]
+    branches: [main, dev/upstream-engine-port]
 concurrency:
   group: native-ios-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
