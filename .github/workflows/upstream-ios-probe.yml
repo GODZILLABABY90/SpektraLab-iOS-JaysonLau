@@ -1,29 +1,30 @@
-name: Original SpektraLab iOS C++ core build
+name: Original SpektraLab iOS native engine compatibility
 on:
   workflow_dispatch:
-  pull_request:
-    branches: [dev/film-presets-v02]
   push:
     branches: [dev/upstream-engine-port]
   pull_request:
-    branches: [main]
+    branches: [dev/film-presets-v02, main]
 permissions:
   contents: read
 jobs:
-  core-ios-syntax:
+  compile-original-core-and-pipeline:
     runs-on: macos-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
-      - name: Compile original upstream C++ core for iPhoneOS arm64
+      - name: Compile upstream spectral C++ core for iPhoneOS arm64
         run: bash scripts/probe-upstream-ios.sh
-      - name: Upload diagnostic reports
+      - name: Compile upstream native pipeline for iPhoneOS arm64
+        if: success()
+        run: bash scripts/probe-upstream-pipeline-ios.sh
+      - name: Upload iOS native build outputs and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: upstream-ios-arm64-core-and-reports
+          name: upstream-native-ios-compatibility
           path: |
-            build/upstream-probe/
             build/upstream-revision.txt
-            build/upstream-probe/libspektralab-core-ios.a
+            build/upstream-probe/
+            build/upstream-pipeline-probe/
           if-no-files-found: warn
