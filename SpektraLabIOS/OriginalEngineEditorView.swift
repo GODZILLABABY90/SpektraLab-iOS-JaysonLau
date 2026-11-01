@@ -961,6 +961,14 @@ struct OriginalEngineEditorView: View {
         postRevision += 1
         let revision = postRevision
         guard let base = developedBase else { return }
+        // Film edges are composed by the native renderer. For edge-enabled
+        // photos the edit is applied to the input BEFORE the frame is drawn,
+        // so the frame and its edge markings remain completely untouched.
+        if filmEdge {
+            postProcessing = false
+            schedulePreview()
+            return
+        }
         let grade = postGrade
         postProcessing = true
         DispatchQueue.global(qos: .userInitiated).async {
@@ -1112,8 +1120,13 @@ struct OriginalEngineEditorView: View {
         DispatchQueue.global(qos: .userInitiated).async {
             let nativeMessage = NSMutableString(string: "")
             // Original engine performs film, paper, grain, halation and overscan.
+            // Apply grading to photo pixels before native edge composition.
+            // This intentionally changes processing order only with an edge:
+            // no post-development filter is allowed to tint the film border.
+            let gradedSource = edges && !exportGrade.isNeutral
+                ? OriginalPostProcessor.apply(exportGrade, to: source) : source
             let renderedImage = OriginalFilmRenderer.renderImageWithoutThrow(
-                source, filmStock: film, printStock: paper,
+                gradedSource ?? source, filmStock: film, printStock: paper,
                 enableEdge: edges, edgeFormat: format,
                 exposureEV: exposure, grainAmount: grain, halationAmount: halation,
                 magenta: magenta, yellow: yellow,
@@ -1121,7 +1134,7 @@ struct OriginalEngineEditorView: View {
                 errorMessage: nativeMessage)
             // Export and preview must both use the same post-development
             // stage. Preview applies the latest grade after native completion.
-            let result = saveAfter ? renderedImage.flatMap {
+            let result = saveAfter && !edges ? renderedImage.flatMap {
                 OriginalPostProcessor.apply(exportGrade, to: $0)
             } : renderedImage
             let renderFailure = nativeMessage.length > 0 ? (nativeMessage as String) : nil
@@ -1140,7 +1153,13 @@ struct OriginalEngineEditorView: View {
                 if let result {
                     if !saveAfter {
                         developedBase = result
-                        refreshPostGrade()
+                        if edges {
+                            postRevision += 1
+                            postProcessing = false
+                            developed = result
+                        } else {
+                            refreshPostGrade()
+                        }
                     }
                     renderedExposureEV = exposure
                     renderedMagenta = magenta
