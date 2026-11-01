@@ -18,6 +18,12 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.godzillababy90.spektralabios
         GENERATE_INFOPLIST_FILE: "YES"
+        CLANG_CXX_LANGUAGE_STANDARD: "c++20"
+        HEADER_SEARCH_PATHS: "$(SRCROOT)/build/upstream-SpektraLab/engine/src/core"
+        OTHER_LDFLAGS:
+          - "$(inherited)"
+          - "-lc++"
+          - "$(SRCROOT)/build/upstream-probe/libspektralab-core-ios.a"
         INFOPLIST_KEY_CFBundleDisplayName: "SpektraLab iOS"
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "YES"
         INFOPLIST_KEY_UIApplicationSupportsDocumentBrowser: "NO"
