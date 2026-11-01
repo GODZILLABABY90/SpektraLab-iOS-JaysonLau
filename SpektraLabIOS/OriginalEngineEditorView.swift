@@ -396,15 +396,23 @@ struct OriginalEngineEditorView: View {
                         .scaleEffect(previewZoom ? 2.0 : 1.0)
                         .frame(width: area.size.width, height: area.size.height)
                 } else {
-                    VStack(spacing: 12) {
-                        Image(systemName: "photo.artframe")
-                            .font(.system(size: 42, weight: .ultraLight))
-                            .foregroundStyle(.white.opacity(0.45))
-                        Text("导入照片开始胶片冲印")
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.75))
+                    PhotosPicker(selection: $pickedPhoto, matching: .images) {
+                        VStack(spacing: 12) {
+                            Image(systemName: "plus.viewfinder")
+                                .font(.system(size: 42, weight: .light))
+                                .foregroundStyle(OriginalMobileTheme.accent)
+                            Text("点击此处导入照片")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white)
+                            Text("也可以点击右上角导入按钮")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.65))
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("首次导入照片")
                 }
                 VStack {
                     HStack {
