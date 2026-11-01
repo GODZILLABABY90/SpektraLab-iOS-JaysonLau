@@ -29,6 +29,10 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO build | tee build.log
+      - name: Package corresponding original upstream source
+        run: |
+          git -C build/upstream-SpektraLab archive --format=tar HEAD | gzip -9 > SpektraLab-upstream-source.tar.gz
+          cp build/upstream-revision.txt UPSTREAM-REVISION.txt
       - name: Package unsigned IPA
         run: |
           mkdir -p Payload
@@ -38,6 +42,14 @@ jobs:
         with:
           name: SpektraLabIOS-unsigned-IPA
           path: SpektraLabIOS-unsigned.ipa
+          if-no-files-found: error
+      - name: Upload corresponding upstream source
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpektraLab-original-engine-source
+          path: |
+            SpektraLab-upstream-source.tar.gz
+            UPSTREAM-REVISION.txt
           if-no-files-found: error
       - name: Upload upstream engine diagnostics
         if: always()
