@@ -24,10 +24,16 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.godzillababy90.spektralabios
         GENERATE_INFOPLIST_FILE: "YES"
         CLANG_CXX_LANGUAGE_STANDARD: "c++20"
-        HEADER_SEARCH_PATHS: "$(SRCROOT)/build/upstream-SpektraLab/engine/src/core"
+        HEADER_SEARCH_PATHS: "$(SRCROOT)/build/upstream-SpektraLab/engine/src/core $(SRCROOT)/build/upstream-SpektraLab/engine/include"
+        SWIFT_OBJC_BRIDGING_HEADER: "SpektraLabIOS/BridgingHeader.h"
         OTHER_LDFLAGS:
           - "$(inherited)"
           - "-lc++"
+          - "-framework Metal"
+          - "-framework QuartzCore"
+          - "-framework Accelerate"
+          - "-framework CoreText"
+          - "-framework CoreGraphics"
           - "$(SRCROOT)/build/upstream-probe/libspektralab-core-ios.a"
           - "$(SRCROOT)/build/upstream-pipeline-probe/libspektralab-pipeline-ios.a"
           - "$(SRCROOT)/build/upstream-gpu-probe/libspektralab-gpu-ios.a"
