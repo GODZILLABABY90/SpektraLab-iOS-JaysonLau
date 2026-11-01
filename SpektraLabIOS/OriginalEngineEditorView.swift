@@ -300,18 +300,14 @@ struct OriginalEngineEditorView: View {
         let magenta = magentaFilter
         let yellow = yellowFilter
         DispatchQueue.global(qos: .userInitiated).async {
-            var failureMessage: String?
-            var renderedImage: UIImage?
-            do {
-                renderedImage = try OriginalFilmRenderer.renderImage(
+            let nativeMessage = NSMutableString(string: "")
+            let renderedImage = OriginalFilmRenderer.renderImageWithoutThrow(
                 source, filmStock: film, printStock: paper,
                 enableEdge: edges, edgeFormat: format,
                 exposureEV: exposure, grainAmount: grain, halationAmount: halation,
                 magenta: magenta, yellow: yellow,
-                maxDimension: maxDimension)
-            } catch {
-                failureMessage = error.localizedDescription
-            }
+                maxDimension: maxDimension, errorMessage: nativeMessage)
+            let failureMessage = nativeMessage.length > 0 ? (nativeMessage as String) : nil
             let result = renderedImage
             let renderFailure = failureMessage
             DispatchQueue.main.async {
