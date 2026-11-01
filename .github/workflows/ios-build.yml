@@ -1,0 +1,46 @@
+name: iOS unsigned IPA
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev/ios-foundation]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show Xcode
+        run: xcodebuild -version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Build iOS app (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project SpektraLabIOS.xcodeproj -scheme SpektraLabIOS \
+            -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO build | tee build.log
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/DerivedData/Build/Products/Release-iphoneos/SpektraLabIOS.app Payload/
+          zip -qry SpektraLabIOS-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SpektraLabIOS-unsigned-IPA
+          path: SpektraLabIOS-unsigned.ipa
+          if-no-files-found: error
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-log
+          path: build.log
+          if-no-files-found: ignore
