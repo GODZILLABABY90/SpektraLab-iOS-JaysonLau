@@ -309,6 +309,9 @@ struct OriginalEngineEditorView: View {
             .onChange(of: postGrade.contrast) { _ in refreshPostGrade() }
             .onChange(of: postGrade.brightness) { _ in refreshPostGrade() }
             .onChange(of: postGrade.saturation) { _ in refreshPostGrade() }
+            .onChange(of: postGrade.vibrance) { _ in refreshPostGrade() }
+            .onChange(of: postGrade.clarity) { _ in refreshPostGrade() }
+            .onChange(of: postGrade.sharpness) { _ in refreshPostGrade() }
             .onChange(of: postGrade.highlights) { _ in refreshPostGrade() }
             .onChange(of: postGrade.shadows) { _ in refreshPostGrade() }
             .onChange(of: postGrade.blackPoint) { _ in refreshPostGrade() }
@@ -710,6 +713,12 @@ struct OriginalEngineEditorView: View {
             darkroomSlider("对比度", subtitle: "输出扫描对比度", value: $postGrade.contrast, range: -50...50)
             darkroomSlider("亮度", subtitle: "输出扫描亮度", value: $postGrade.brightness, range: -50...50)
             darkroomSlider("饱和度", subtitle: "输出扫描饱和度", value: $postGrade.saturation, range: -100...100)
+            darkroomSlider("自然饱和度", subtitle: "优先提升低饱和色彩", value: $postGrade.vibrance, range: -100...100)
+            railDivider
+            Label("DETAIL · 细节", systemImage: "camera.macro").font(.caption.weight(.semibold))
+                .foregroundStyle(OriginalMobileTheme.muted)
+            darkroomSlider("清晰度", subtitle: "局部边缘对比度", value: $postGrade.clarity, range: 0...100)
+            darkroomSlider("锐化", subtitle: "扫描后细节增强", value: $postGrade.sharpness, range: 0...100)
             railDivider
             Text("TONE · 明暗层次").font(.caption.weight(.semibold))
                 .foregroundStyle(OriginalMobileTheme.muted)
@@ -733,7 +742,7 @@ struct OriginalEngineEditorView: View {
 
     private var edgesPanel: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Film Edge · 原版胶片片边").font(.headline)
+            Label("Film Edge · 原版胶片片边", systemImage: "film.stack").font(.headline)
             Text("沿用原版的片门、齿孔、底片边码和光漏参数。启用时按胶片画幅比例居中裁剪照片。")
                 .font(.caption).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 15) {
@@ -768,6 +777,21 @@ struct OriginalEngineEditorView: View {
                                    value: $edgeFog, range: 0...4)
                     darkroomSlider("边缘漏光", subtitle: "原版漏光强度",
                                    value: $edgeLeaks, range: 0...4)
+                    Button {
+                        edgeLeaks = Double.random(in: 0.8...3.6)
+                        edgeFog = Double.random(in: 0.2...2.0)
+                        edgeFrameNumber = Int.random(in: 1...99)
+                        schedulePreview(immediate: true)
+                    } label: {
+                        Label("随机漏光 · 换一款", systemImage: "shuffle")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(OriginalMobileTheme.accent.opacity(0.23), in: RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                    Text("随机调整漏光强度、灰雾与画格编号；满意后保持当前参数导出。具体光斑位置由原版引擎决定。")
+                        .font(.caption2).foregroundStyle(OriginalMobileTheme.muted)
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             Text("画格编号")
