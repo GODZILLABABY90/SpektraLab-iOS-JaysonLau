@@ -5,6 +5,9 @@ on:
     branches: [dev/ios-foundation, dev/film-presets-v02, dev/upstream-engine-port]
   pull_request:
     branches: [main]
+concurrency:
+  group: native-ios-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
