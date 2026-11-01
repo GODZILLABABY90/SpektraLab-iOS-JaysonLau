@@ -688,6 +688,20 @@ struct OriginalEngineEditorView: View {
         case "fujifilm_neopan_acros_100_ii": grainFactor = 0.64
         default: grainFactor = 1
         }
+        let gateLongMM: Double
+        switch format {
+        case "135_half": gateLongMM = 24
+        case "120_645", "120_6x6": gateLongMM = 56
+        case "120_6x7": gateLongMM = 69.5
+        case "120_6x8": gateLongMM = 76
+        case "120_6x9": gateLongMM = 84
+        case "135_xpan": gateLongMM = 65
+        case "120_6x12": gateLongMM = 112
+        case "120_6x17": gateLongMM = 168
+        default: gateLongMM = 36
+        }
+        let isMonochrome = ["tri_x", "tmax", "hp5", "delta", "acros", "pan_f", "fp4"]
+            .contains(where: { film.lowercased().contains($0) })
         // Keys and ranges match the upstream original FilmParams.wire schema.
         // A single dictionary is captured with the render snapshot, so a slider
         // cannot mutate parameters halfway through a native render.
@@ -696,7 +710,8 @@ struct OriginalEngineEditorView: View {
             "preflash_exposure": preflash,
             "lens_blur_um": lensBlur,
             "scanner_lens_blur": scannerBlur,
-            "grain_sublayers_active": grainLayered,
+            "grain_sublayers_active": grainLayered && !isMonochrome,
+            "film_format_mm": edges ? gateLongMM : 36,
             "grain_amount": min(2, grain * grainFactor),
             "halation_scatter_amount": halationScatter,
             "halation_boost_ev": highlightBoost,
