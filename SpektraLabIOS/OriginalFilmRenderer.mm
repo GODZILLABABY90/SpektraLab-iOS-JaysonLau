@@ -19,6 +19,7 @@ static NSError *SPKIosError(NSString *message) {
 }
 
 static NSString *SPKEngineError(spk_engine *engine) {
+    if (!engine) return @"Original spectral engine could not be initialized";
     const char *description = spk_last_error(engine);
     return description && description[0] ? [NSString stringWithUTF8String:description] : @"Original engine returned an error";
 }
@@ -79,7 +80,7 @@ static NSString *SPKEngineError(spk_engine *engine) {
         CGColorSpaceRef srgb = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
         CGContextRef bitmap = CGBitmapContextCreate(rgba.data(), width, height, 8,
                                                     width * 4, srgb,
-                                                    kCGBitmapByteOrder32Big | kCGImageAlphaPremultipliedLast);
+                                                    CGBitmapInfo(kCGBitmapByteOrder32Big | static_cast<CGBitmapInfo>(kCGImageAlphaPremultipliedLast)));
         if (!bitmap) {
             CGColorSpaceRelease(srgb);
             if (error) *error = SPKIosError(@"Could not allocate source pixels");
@@ -171,7 +172,7 @@ static NSString *SPKEngineError(spk_engine *engine) {
         spk_result_free(&result);
 
         CGContextRef outputCtx = CGBitmapContextCreate(output.data(), w, h, 8,
-                         w * 4, srgb, kCGBitmapByteOrder32Big | kCGImageAlphaPremultipliedLast);
+                         w * 4, srgb, CGBitmapInfo(kCGBitmapByteOrder32Big | static_cast<CGBitmapInfo>(kCGImageAlphaPremultipliedLast)));
         CGColorSpaceRelease(srgb);
         if (!outputCtx) {
             if (error) *error = SPKIosError(@"Could not allocate output image");
