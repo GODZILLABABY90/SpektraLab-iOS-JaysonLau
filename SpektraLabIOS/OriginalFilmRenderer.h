@@ -8,6 +8,7 @@ NS_ASSUME_NONNULL_BEGIN
                         filmStock:(NSString *)filmStock
                        printStock:(NSString *)printStock
                         enableEdge:(BOOL)enableEdge
+                       edgeFormat:(NSString *)edgeFormat
                      maxDimension:(NSInteger)maxDimension
                             error:(NSError * _Nullable __autoreleasing * _Nullable)error;
 @end
