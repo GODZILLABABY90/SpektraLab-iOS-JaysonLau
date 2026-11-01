@@ -15,6 +15,9 @@ struct PostDevelopmentGrade: Sendable {
     var contrast = 0.0          // -50...50
     var brightness = 0.0        // -50...50
     var saturation = 0.0        // -100...100
+    var vibrance = 0.0         // -100...100
+    var sharpness = 0.0        // 0...100
+    var clarity = 0.0          // -100...100
     var highlights = 0.0       // -100...100
     var shadows = 0.0          // -100...100
     var blackPoint = 0.0       // 0...50
@@ -24,7 +27,7 @@ struct PostDevelopmentGrade: Sendable {
 
     var isNeutral: Bool {
         !enabled || (temperature == 0 && tint == 0 && exposure == 0 &&
-        contrast == 0 && brightness == 0 && saturation == 0 &&
+        contrast == 0 && brightness == 0 && saturation == 0 && vibrance == 0 && sharpness == 0 && clarity == 0 &&
         highlights == 0 && shadows == 0 && blackPoint == 0 &&
         whitePoint == 0 && vignette == 0)
     }
@@ -68,6 +71,18 @@ enum OriginalPostProcessor {
                 kCIInputBrightnessKey: grade.brightness / 200,
                 kCIInputSaturationKey: max(0, 1 + grade.saturation / 100)
             ])
+        }
+        if grade.vibrance != 0 {
+            run("CIVibrance", ["inputAmount": grade.vibrance / 100])
+        }
+        if grade.clarity != 0 {
+            run("CIUnsharpMask", [
+                "inputRadius": 2.5,
+                "inputIntensity": max(0, grade.clarity / 100 * 0.9)
+            ])
+        }
+        if grade.sharpness != 0 {
+            run("CISharpenLuminance", ["inputSharpness": grade.sharpness / 100 * 1.5])
         }
         if grade.highlights != 0 || grade.shadows != 0 {
             run("CIHighlightShadowAdjust", [
