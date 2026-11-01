@@ -175,6 +175,11 @@ struct EditorView: View {
             .onChange(of: vignette) { _ in refreshPreview() }
         }
         .preferredColorScheme(.dark)
+        .onAppear {
+            if !UpstreamCore.verifiedSpectralFunction() {
+                status = "Upstream spectral core is unavailable"
+            }
+        }
     }
 
     private func control(_ title: String, value: Binding<Double>,
