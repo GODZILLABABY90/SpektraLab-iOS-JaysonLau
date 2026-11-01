@@ -29,6 +29,7 @@ static NSString *SPKEngineError(spk_engine *engine) {
                filmStock:(NSString *)filmStock
               printStock:(NSString *)printStock
                enableEdge:(BOOL)enableEdge
+                       edgeFormat:(NSString *)edgeFormat
             maxDimension:(NSInteger)maxDimension
                    error:(NSError * _Nullable __autoreleasing *)error {
     @autoreleasepool {
@@ -110,7 +111,7 @@ static NSString *SPKEngineError(spk_engine *engine) {
             @"preview_long_edge": @(maxDimension),
             @"product_defaults": @YES,
             @"overscan_active": @(enableEdge),
-            @"overscan_format": @"135",
+            @"overscan_format": edgeFormat.length ? edgeFormat : @"135",
             @"overscan_mode": @"strip",
             @"overscan_holes": @"white"
         };
