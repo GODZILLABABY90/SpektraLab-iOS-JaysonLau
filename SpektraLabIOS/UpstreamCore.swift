@@ -1,6 +1,6 @@
 // Calls the upstream GPL-licensed C++ core through an unmangled C ABI.
 // The V0.2 renderer is not switched to the original spectral pipeline yet.
-@_silgen_name("spk_ios_blackbody_sample")
+@_silgen_name("spektralab_ios_blackbody_radiance")
 private func spk_ios_blackbody_sample(_ wavelengthNanometers: Double, _ temperatureKelvin: Double) -> Double
 
 enum UpstreamCore {
