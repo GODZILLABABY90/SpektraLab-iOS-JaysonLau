@@ -16,6 +16,20 @@ NS_ASSUME_NONNULL_BEGIN
                             yellow:(double)yellow
                      maxDimension:(NSInteger)maxDimension
                             error:(NSError * _Nullable __autoreleasing * _Nullable)error;
+
+ // Explicit non-throwing Swift entry point. Never bridge native NSError** as Swift Error.
++ (nullable UIImage *)renderImageWithoutThrow:(UIImage *)image
+                                    filmStock:(NSString *)filmStock
+                                   printStock:(NSString *)printStock
+                                   enableEdge:(BOOL)enableEdge
+                                   edgeFormat:(NSString *)edgeFormat
+                                   exposureEV:(double)exposureEV
+                                  grainAmount:(double)grainAmount
+                               halationAmount:(double)halationAmount
+                                     magenta:(double)magenta
+                                      yellow:(double)yellow
+                                maxDimension:(NSInteger)maxDimension
+                                errorMessage:(NSMutableString *)errorMessage;
 @end
 
 NS_ASSUME_NONNULL_END
