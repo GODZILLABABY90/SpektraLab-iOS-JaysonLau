@@ -24,6 +24,8 @@ targets:
           - "$(inherited)"
           - "-lc++"
           - "$(SRCROOT)/build/upstream-probe/libspektralab-core-ios.a"
+          - "$(SRCROOT)/build/upstream-pipeline-probe/libspektralab-pipeline-ios.a"
+          - "$(SRCROOT)/build/upstream-gpu-probe/libspektralab-gpu-ios.a"
         INFOPLIST_KEY_CFBundleDisplayName: "SpektraLab iOS"
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "YES"
         INFOPLIST_KEY_UIApplicationSupportsDocumentBrowser: "NO"
