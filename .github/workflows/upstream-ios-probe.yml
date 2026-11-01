@@ -1,0 +1,24 @@
+name: Original SpektraLab engine iOS compatibility probe
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev/upstream-engine-port]
+permissions:
+  contents: read
+jobs:
+  core-ios-syntax:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe original upstream C++ core against iPhoneOS SDK
+        run: bash scripts/probe-upstream-ios.sh
+      - name: Upload diagnostic reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-ios-core-probe
+          path: |
+            build/upstream-probe/
+            build/upstream-revision.txt
+          if-no-files-found: warn
