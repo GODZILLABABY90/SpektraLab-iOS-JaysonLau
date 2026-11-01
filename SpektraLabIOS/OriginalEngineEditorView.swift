@@ -97,6 +97,8 @@ struct OriginalEngineEditorView: View {
     @State private var postGrade = PostDevelopmentGrade()
     @State private var postRevision = 0
     @State private var postProcessing = false
+    @State private var showFilmLibrary = false
+    @State private var showPaperLibrary = false
     @State private var stocks: [OriginalStock] = []
     @State private var filmStock = "kodak_portra_400"
     @State private var paperStock = "kodak_supra_endura"
@@ -214,6 +216,14 @@ struct OriginalEngineEditorView: View {
             .navigationTitle("SpektraLab")
             .navigationBarTitleDisplayMode(.inline)
             .preferredColorScheme(.dark)
+            .sheet(isPresented: $showFilmLibrary) {
+                OriginalStockLibrary(stocks: stocks.filter { $0.support == "film" },
+                                     selection: $filmStock, title: "FILM · 胶片")
+            }
+            .sheet(isPresented: $showPaperLibrary) {
+                OriginalStockLibrary(stocks: stocks.filter { $0.support == "paper" },
+                                     selection: $paperStock, title: "PRINT · 相纸")
+            }
             .confirmationDialog("选择导出像素", isPresented: $showExportChoices,
                                 titleVisibility: .visible) {
                 ForEach([1024, 2048, 3072, 4096], id: \.self) { pixels in
@@ -401,55 +411,81 @@ struct OriginalEngineEditorView: View {
     }
 
     private var filmPanel: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("FILM & PRINT").font(.headline)
-                    Text("原版胶片与相纸配置 · 自动显影")
-                        .font(.caption).foregroundStyle(.secondary)
+                    Text("原版胶片与相纸配置")
+                        .font(.caption).foregroundStyle(OriginalMobileTheme.muted)
                 }
                 Spacer()
-                Button("重新显影") {
-                    schedulePreview(immediate: true)
-                }
-                .font(.caption.weight(.semibold))
-                .disabled(input == nil)
+                Button("重新显影") { schedulePreview(immediate: true) }
+                    .font(.caption.weight(.medium))
+                    .tint(OriginalMobileTheme.accent)
+                    .disabled(input == nil)
             }
-            VStack(alignment: .leading, spacing: 10) {
-                Text("胶片类型").font(.subheadline.weight(.semibold))
-                Picker("胶片类型", selection: $filmStock) {
-                    if stocks.filter({ $0.support == "film" }).isEmpty {
-                        Text("柯达 Portra 400 · 人像负片").tag("kodak_portra_400")
-                    } else {
-                        ForEach(stocks.filter { $0.support == "film" }) { stock in
-                            Text(stock.chineseName).tag(stock.id)
-                        }
-                    }
-                }
-                .pickerStyle(.menu)
-                .tint(OriginalMobileTheme.accent)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(14)
-            .background(OriginalMobileTheme.canvas.opacity(0.38), in: RoundedRectangle(cornerRadius: 7))
+            .padding(.bottom, 14)
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text("相纸类型").font(.subheadline.weight(.semibold))
-                Picker("相纸类型", selection: $paperStock) {
-                    if stocks.filter({ $0.support == "paper" }).isEmpty {
-                        Text("柯达 Supra Endura · 相纸").tag("kodak_supra_endura")
-                    } else {
-                        ForEach(stocks.filter { $0.support == "paper" }) { stock in
-                            Text(stock.chineseName).tag(stock.id)
-                        }
+            railDivider
+            Text("FILM · 胶片").font(.caption.weight(.semibold))
+                .foregroundStyle(OriginalMobileTheme.muted)
+                .padding(.vertical, 9)
+            Button { showFilmLibrary = true } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "camera.filters")
+                        .font(.system(size: 20, weight: .light))
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(stocks.first(where: { $0.id == filmStock })?.chineseName ?? filmStock)
+                            .font(.subheadline.weight(.medium))
+                            .lineLimit(2)
+                        Text("点按查看全部原版胶片")
+                            .font(.caption2).foregroundStyle(OriginalMobileTheme.muted)
                     }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
                 }
-                .pickerStyle(.menu)
-                .tint(OriginalMobileTheme.accent)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .foregroundStyle(OriginalMobileTheme.ink)
+                .padding(14)
+                .background(OriginalMobileTheme.canvas.opacity(0.55), in: RoundedRectangle(cornerRadius: 7))
             }
-            .padding(14)
-            .background(OriginalMobileTheme.canvas.opacity(0.38), in: RoundedRectangle(cornerRadius: 7))
+            .buttonStyle(.plain)
+            .padding(.bottom, 15)
+
+            railDivider
+            Text("PRINT · 相纸").font(.caption.weight(.semibold))
+                .foregroundStyle(OriginalMobileTheme.muted)
+                .padding(.vertical, 9)
+            Button { showPaperLibrary = true } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "square.stack.3d.up")
+                        .font(.system(size: 20, weight: .light))
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(stocks.first(where: { $0.id == paperStock })?.chineseName ?? paperStock)
+                            .font(.subheadline.weight(.medium))
+                            .lineLimit(2)
+                        Text("点按查看全部原版相纸")
+                            .font(.caption2).foregroundStyle(OriginalMobileTheme.muted)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                }
+                .foregroundStyle(OriginalMobileTheme.ink)
+                .padding(14)
+                .background(OriginalMobileTheme.canvas.opacity(0.55), in: RoundedRectangle(cornerRadius: 7))
+            }
+            .buttonStyle(.plain)
+            .disabled(scanFilm)
+            .opacity(scanFilm ? 0.45 : 1)
+            .padding(.bottom, 15)
+            railDivider
+            Text("选中的胶片和相纸由原版光谱引擎处理；切换胶片时自动匹配其推荐相纸。")
+                .font(.caption2)
+                .foregroundStyle(OriginalMobileTheme.muted)
+                .padding(.top, 12)
         }
     }
 
@@ -593,7 +629,6 @@ struct OriginalEngineEditorView: View {
             Text("iOS 后期处理已连接预览与导出。当前采用 Core Image 实现，原版 Metal 调色着色器仍待逐项对齐。")
                 .font(.caption2).foregroundStyle(.secondary)
         }
-        .disabled(!postGrade.enabled)
     }
 
     private var railDivider: some View {
@@ -889,4 +924,69 @@ struct OriginalEngineEditorView: View {
         }
     }
 
+}
+
+private struct OriginalStockLibrary: View {
+    let stocks: [OriginalStock]
+    @Binding var selection: String
+    let title: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+
+    private var matches: [OriginalStock] {
+        guard !query.isEmpty else { return stocks }
+        return stocks.filter {
+            $0.chineseName.localizedCaseInsensitiveContains(query) ||
+            $0.id.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(spacing: 2) {
+                    ForEach(matches) { stock in
+                        Button {
+                            selection = stock.id
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(stock.chineseName)
+                                        .font(.subheadline.weight(selection == stock.id ? .semibold : .regular))
+                                    Text(stock.id)
+                                        .font(.caption2)
+                                        .opacity(0.7)
+                                }
+                                Spacer(minLength: 8)
+                                if selection == stock.id {
+                                    Image(systemName: "checkmark")
+                                        .font(.subheadline.weight(.bold))
+                                }
+                            }
+                            .foregroundStyle(selection == stock.id ? OriginalMobileTheme.rail : OriginalMobileTheme.ink)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 13)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(selection == stock.id ? OriginalMobileTheme.ink : Color.clear,
+                                        in: RoundedRectangle(cornerRadius: 6))
+                        }
+                        .buttonStyle(.plain)
+                        OriginalMobileTheme.line.frame(height: 0.5)
+                    }
+                }
+                .padding(.horizontal, 12)
+            }
+            .background(OriginalMobileTheme.rail)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("完成") { dismiss() }.tint(OriginalMobileTheme.accent)
+                }
+            }
+            .searchable(text: $query, prompt: "搜索胶片名称或型号")
+            .preferredColorScheme(.dark)
+        }
+    }
 }
