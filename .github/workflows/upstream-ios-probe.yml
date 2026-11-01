@@ -27,4 +27,5 @@ jobs:
             build/upstream-revision.txt
             build/upstream-probe/
             build/upstream-pipeline-probe/
+            build/upstream-metal-ios/
           if-no-files-found: warn
