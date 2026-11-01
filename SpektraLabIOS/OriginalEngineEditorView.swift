@@ -45,6 +45,8 @@ struct OriginalEngineEditorView: View {
     @State private var magentaFilter = 0.0
     @State private var yellowFilter = 0.0
     @State private var processing = false
+    @State private var previewRevision = 0
+    @State private var pendingPreview: Task<Void, Never>?
     @State private var showInput = false
     @State private var status = "导入照片，使用原版光谱引擎冲印"
 
@@ -164,9 +166,9 @@ struct OriginalEngineEditorView: View {
                     .disabled(input == nil || processing)
 
                     Button {
-                        develop(maxDimension: 4096, saveAfter: true)
+                        develop(maxDimension: 2048, saveAfter: true)
                     } label: {
-                        Label("高清渲染并保存到相册（最长边 4096px）",
+                        Label("安全导出到相册（最长边 2048px）",
                               systemImage: "square.and.arrow.down")
                             .frame(maxWidth: .infinity)
                     }
@@ -202,16 +204,16 @@ struct OriginalEngineEditorView: View {
                    stocks.contains(where: { $0.id == recommended && $0.support == "paper" }) {
                     paperStock = recommended
                 }
-                developed = nil
+                schedulePreview()
             }
-            .onChange(of: paperStock) { _ in developed = nil }
-            .onChange(of: filmEdge) { _ in developed = nil }
-            .onChange(of: edgeFormat) { _ in developed = nil }
-            .onChange(of: exposureEV) { _ in developed = nil }
-            .onChange(of: grainAmount) { _ in developed = nil }
-            .onChange(of: halationAmount) { _ in developed = nil }
-            .onChange(of: magentaFilter) { _ in developed = nil }
-            .onChange(of: yellowFilter) { _ in developed = nil }
+            .onChange(of: paperStock) { _ in schedulePreview() }
+            .onChange(of: filmEdge) { _ in schedulePreview() }
+            .onChange(of: edgeFormat) { _ in schedulePreview() }
+            .onChange(of: exposureEV) { _ in schedulePreview() }
+            .onChange(of: grainAmount) { _ in schedulePreview() }
+            .onChange(of: halationAmount) { _ in schedulePreview() }
+            .onChange(of: magentaFilter) { _ in schedulePreview() }
+            .onChange(of: yellowFilter) { _ in schedulePreview() }
             .onChange(of: pickedPhoto) { item in
                 Task {
                     guard let data = try? await item?.loadTransferable(type: Data.self),
@@ -222,7 +224,8 @@ struct OriginalEngineEditorView: View {
                     input = photo
                     developed = nil
                     showInput = false
-                    status = "照片已导入，选择胶片与相纸后开始显影"
+                    status = "照片已导入，正在生成预览…"
+                    schedulePreview()
                 }
             }
         }
@@ -240,9 +243,31 @@ struct OriginalEngineEditorView: View {
         }
     }
 
+    private func schedulePreview() {
+        developed = nil
+        previewRevision += 1
+        let revision = previewRevision
+        pendingPreview?.cancel()
+        guard input != nil else { return }
+        pendingPreview = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled, revision == previewRevision else { return }
+            if !processing { develop(maxDimension: 1000, saveAfter: false) }
+        }
+    }
+
+    private func schedulePreviewAfterStaleRender() {
+        pendingPreview?.cancel()
+        pendingPreview = Task { @MainActor in
+            guard input != nil else { return }
+            develop(maxDimension: 1000, saveAfter: false)
+        }
+    }
+
     private func develop(maxDimension: Int, saveAfter: Bool) {
         guard let source = input, !processing else { return }
         processing = true
+        let revisionAtStart = previewRevision
         status = "正在调用原版光谱渲染引擎…"
         let film = filmStock
         let paper = paperStock
@@ -270,6 +295,10 @@ struct OriginalEngineEditorView: View {
             let renderFailure = failureMessage
             DispatchQueue.main.async {
                 processing = false
+                if revisionAtStart != previewRevision {
+                    schedulePreviewAfterStaleRender()
+                    return
+                }
                 if let result {
                     developed = result
                     showInput = false
