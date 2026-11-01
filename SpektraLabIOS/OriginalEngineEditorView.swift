@@ -80,11 +80,11 @@ private enum EditorTab: String, CaseIterable {
     case post = "后期"
     var icon: String {
         switch self {
-        case .film: return "camera.filters"
+        case .film: return "camera.aperture"
         case .adjustments: return "slider.horizontal.3"
-        case .texture: return "circle.dotted.circle"
+        case .texture: return "circle.hexagongrid"
         case .edges: return "rectangle.on.rectangle"
-        case .post: return "camera.metering.center.weighted"
+        case .post: return "slider.horizontal.3"
         }
     }
 }
@@ -354,7 +354,7 @@ struct OriginalEngineEditorView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("导入照片")
-            Button { showExportChoices = true } label: {
+            Button { showExportDestination = true } label: {
                 Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 17, weight: .regular))
                     .frame(width: 38, height: 38)
@@ -468,12 +468,12 @@ struct OriginalEngineEditorView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("FILM & PRINT").font(.headline)
+                    Label("FILM & PRINT", systemImage: "camera.aperture").font(.headline)
                     Text("原版胶片与相纸配置")
                         .font(.caption).foregroundStyle(OriginalMobileTheme.muted)
                 }
                 Spacer()
-                Button("重新显影") { schedulePreview(immediate: true) }
+                Button { schedulePreview(immediate: true) } label: { Label("重新显影", systemImage: "arrow.clockwise") }
                     .font(.caption.weight(.medium))
                     .tint(OriginalMobileTheme.accent)
                     .disabled(input == nil)
@@ -486,7 +486,7 @@ struct OriginalEngineEditorView: View {
                 .padding(.vertical, 9)
             Button { showFilmLibrary = true } label: {
                 HStack(spacing: 12) {
-                    Image(systemName: "camera.filters")
+                    Image(systemName: "camera.aperture")
                         .font(.system(size: 20, weight: .light))
                         .frame(width: 28)
                     VStack(alignment: .leading, spacing: 3) {
@@ -546,7 +546,7 @@ struct OriginalEngineEditorView: View {
     private var adjustmentsPanel: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("暗房 · 影调与色彩").font(.headline)
+                Label("暗房 · 影调与色彩", systemImage: "slider.horizontal.3").font(.headline)
                 Spacer()
                 Button("重置") {
                     exposureEV = 0; printBrightness = 0; preflash = 0
@@ -589,7 +589,7 @@ struct OriginalEngineEditorView: View {
     private var texturePanel: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("胶片质感 · 原版物理模型").font(.headline)
+                Label("胶片质感 · 原版物理模型", systemImage: "circle.hexagongrid").font(.headline)
                 Spacer()
                 Button("重置") {
                     grainAmount = 1; halationAmount = 1
