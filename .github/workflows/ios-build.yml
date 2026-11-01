@@ -22,6 +22,14 @@ jobs:
         run: brew install xcodegen
       - name: Compile original GPL-licensed C++ spectral core for iPhoneOS
         run: bash scripts/probe-upstream-ios.sh
+      - name: Compile original film-print pipeline
+        run: bash scripts/probe-upstream-pipeline-ios.sh
+      - name: Compile original GPU backend
+        run: bash scripts/probe-upstream-gpu-ios.sh
+      - name: Compile original iOS Metal shaders
+        run: bash scripts/probe-upstream-metal-ios.sh
+      - name: Bundle original iOS metallib
+        run: cp build/upstream-metal-ios/spektrafilm-ios.metallib SpektraLabIOS/spektrafilm-ios.metallib
       - name: Generate project
         run: xcodegen generate
       - name: Build iOS app (unsigned)
@@ -62,6 +70,12 @@ jobs:
           path: |
             build/upstream-probe/results.txt
             build/upstream-probe/*.log
+            build/upstream-pipeline-probe/results.txt
+            build/upstream-pipeline-probe/*.log
+            build/upstream-gpu-probe/results.txt
+            build/upstream-gpu-probe/*.log
+            build/upstream-metal-ios/results.txt
+            build/upstream-metal-ios/*.log
             build/upstream-revision.txt
           if-no-files-found: warn
       - name: Upload build log on failure
