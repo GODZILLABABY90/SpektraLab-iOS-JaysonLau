@@ -34,6 +34,9 @@ printf 'Passed: %s; failed: %s\n' "$passes" "$failures" | tee -a "$ROOT/build/up
 # This is an exploratory diagnostic gate. Keep the existing IPA build independent.
 
 if [ "$failures" -eq 0 ]; then
+  "$CXX" -std=c++20 -O2 -c -target arm64-apple-ios17.0 -isysroot "$SDK" \
+    -I"$CORE" -I"$UPSTREAM_DIR/engine/include" -I"$UPSTREAM_DIR/engine/src" \
+    "$ROOT/native/UpstreamBridge.cpp" -o "$ROOT/build/upstream-probe/UpstreamBridge.o"
   xcrun --sdk iphoneos ar rcs "$ROOT/build/upstream-probe/libspektralab-core-ios.a" "$ROOT"/build/upstream-probe/*.o
   echo "Original C++ core static library produced" | tee -a "$ROOT/build/upstream-probe/results.txt"
   mkdir -p "$ROOT/build/upstream-probe/license-notices"
@@ -42,3 +45,8 @@ fi
 
 # Mark the probe unsuccessful when any upstream source is incompatible.
 if [ "$failures" -ne 0 ]; then exit 1; fi
+
+if [ "$failures" -ne 0 ]; then
+  echo "Original upstream core is not yet fully portable to iOS: $failures failures" >&2
+  exit 1
+fi
