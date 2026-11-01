@@ -563,39 +563,49 @@ struct OriginalEngineEditorView: View {
                 .foregroundStyle(OriginalMobileTheme.muted)
                 .padding(.vertical, 9)
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 10) {
+                LazyHStack(spacing: 12) {
                     ForEach(stocks.filter { $0.support == "paper" }) { stock in
                         Button { paperStock = stock.id } label: {
-                            HStack(spacing: 9) {
-                                Image(systemName: "square.stack.3d.up.fill")
-                                    .font(.system(size: 19))
-                                    .foregroundStyle(filmCardColor(stock.id))
-                                VStack(alignment: .leading, spacing: 3) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(filmCardColor(stock.id).gradient)
+                                    VStack(spacing: 6) {
+                                        Image(systemName: "square.stack.3d.up.fill")
+                                            .font(.system(size: 23, weight: .medium))
+                                        Text(stock.name.components(separatedBy: " ").first ?? "PAPER")
+                                            .font(.system(size: 12, weight: .black, design: .rounded))
+                                            .lineLimit(1)
+                                        Text("PHOTO PAPER")
+                                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                    }
+                                    .foregroundStyle(.white)
+                                }
+                                .frame(height: 92)
+                                HStack(alignment: .top, spacing: 4) {
                                     Text(stock.chineseName)
-                                        .font(.caption.weight(.semibold))
+                                        .font(.caption2.weight(.semibold))
                                         .lineLimit(2)
-                                    Text("PRINT PAPER")
-                                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                                        .foregroundStyle(OriginalMobileTheme.muted)
+                                    if paperStock == stock.id {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(OriginalMobileTheme.accent)
+                                    }
                                 }
-                                Spacer(minLength: 0)
-                                if paperStock == stock.id {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(OriginalMobileTheme.accent)
-                                }
+                                .foregroundStyle(OriginalMobileTheme.ink)
+                                .frame(height: 32, alignment: .topLeading)
                             }
-                            .foregroundStyle(OriginalMobileTheme.ink)
-                            .frame(width: 176, height: 65)
-                            .padding(.horizontal, 11)
-                            .background(paperStock == stock.id ? OriginalMobileTheme.accent.opacity(0.18) : Color.white.opacity(0.07),
-                                        in: RoundedRectangle(cornerRadius: 12))
-                            .overlay(RoundedRectangle(cornerRadius: 12)
-                                .stroke(paperStock == stock.id ? OriginalMobileTheme.accent : .clear, lineWidth: 1.5))
+                            .padding(7)
+                            .frame(width: 132)
+                            .background(paperStock == stock.id ? OriginalMobileTheme.accent.opacity(0.22) : Color.white.opacity(0.07),
+                                        in: RoundedRectangle(cornerRadius: 13))
+                            .overlay(RoundedRectangle(cornerRadius: 13)
+                                .stroke(paperStock == stock.id ? OriginalMobileTheme.accent : .clear, lineWidth: 2))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("选择相纸 " + stock.chineseName)
                     }
                 }
-                .padding(.vertical, 5)
+                .padding(.vertical, 6)
             }
             .disabled(scanFilm)
             .opacity(scanFilm ? 0.45 : 1)
