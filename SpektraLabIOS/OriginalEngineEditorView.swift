@@ -39,6 +39,11 @@ struct OriginalEngineEditorView: View {
     @State private var paperStock = "kodak_portra_endura"
     @State private var filmEdge = false
     @State private var edgeFormat = "135"
+    @State private var exposureEV = 0.0
+    @State private var grainAmount = 1.0
+    @State private var halationAmount = 1.0
+    @State private var magentaFilter = 0.0
+    @State private var yellowFilter = 0.0
     @State private var processing = false
     @State private var showInput = false
     @State private var status = "导入照片，使用原版光谱引擎冲印"
@@ -130,6 +135,19 @@ struct OriginalEngineEditorView: View {
                     .padding(14)
                     .background(Color(white: 0.14), in: RoundedRectangle(cornerRadius: 12))
 
+                    Text("DARKROOM ADJUSTMENTS")
+                        .font(.caption.weight(.semibold)).tracking(2)
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 10) {
+                        darkroomSlider("相机曝光", value: $exposureEV, range: -2...2)
+                        darkroomSlider("真实胶片颗粒", value: $grainAmount, range: 0...2)
+                        darkroomSlider("胶片光晕 Halation", value: $halationAmount, range: 0...4)
+                        darkroomSlider("放大机洋红滤镜", value: $magentaFilter, range: -1...1)
+                        darkroomSlider("放大机黄色滤镜", value: $yellowFilter, range: -1...1)
+                    }
+                    .padding(14)
+                    .background(Color(white: 0.14), in: RoundedRectangle(cornerRadius: 12))
+
                     Button {
                         develop(maxDimension: 1800, saveAfter: false)
                     } label: {
@@ -189,6 +207,11 @@ struct OriginalEngineEditorView: View {
             .onChange(of: paperStock) { _ in developed = nil }
             .onChange(of: filmEdge) { _ in developed = nil }
             .onChange(of: edgeFormat) { _ in developed = nil }
+            .onChange(of: exposureEV) { _ in developed = nil }
+            .onChange(of: grainAmount) { _ in developed = nil }
+            .onChange(of: halationAmount) { _ in developed = nil }
+            .onChange(of: magentaFilter) { _ in developed = nil }
+            .onChange(of: yellowFilter) { _ in developed = nil }
             .onChange(of: pickedPhoto) { item in
                 Task {
                     guard let data = try? await item?.loadTransferable(type: Data.self),
@@ -205,6 +228,18 @@ struct OriginalEngineEditorView: View {
         }
     }
 
+    private func darkroomSlider(_ name: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+        VStack(spacing: 4) {
+            HStack {
+                Text(name)
+                Spacer()
+                Text(String(format: "%.2f", value.wrappedValue))
+                    .foregroundStyle(.secondary).monospacedDigit()
+            }
+            Slider(value: value, in: range).tint(.orange)
+        }
+    }
+
     private func develop(maxDimension: Int, saveAfter: Bool) {
         guard let source = input, !processing else { return }
         processing = true
@@ -213,11 +248,18 @@ struct OriginalEngineEditorView: View {
         let paper = paperStock
         let edges = filmEdge
         let format = edgeFormat
+        let exposure = exposureEV
+        let grain = grainAmount
+        let halation = halationAmount
+        let magenta = magentaFilter
+        let yellow = yellowFilter
         DispatchQueue.global(qos: .userInitiated).async {
             var renderError: NSError?
             let result = OriginalFilmRenderer.renderImage(
                 source, filmStock: film, printStock: paper,
                 enableEdge: edges, edgeFormat: format,
+                exposureEV: exposure, grainAmount: grain, halationAmount: halation,
+                magenta: magenta, yellow: yellow,
                 maxDimension: maxDimension, error: &renderError)
             DispatchQueue.main.async {
                 processing = false
