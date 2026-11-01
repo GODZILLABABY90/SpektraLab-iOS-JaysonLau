@@ -68,7 +68,9 @@ private enum OriginalMobileTheme {
     static let canvas = Color(red: 95/255, green: 95/255, blue: 95/255)
     static let ink = Color(red: 249/255, green: 247/255, blue: 243/255)
     static let muted = Color(red: 218/255, green: 216/255, blue: 212/255)
-    static let accent = Color(red: 225/255, green: 169/255, blue: 95/255)
+    static let accent = Color(red: 250/255, green: 178/255, blue: 91/255)
+    static let coral = Color(red: 251/255, green: 110/255, blue: 121/255)
+    static let cyan = Color(red: 80/255, green: 211/255, blue: 216/255)
     static let line = Color(red: 181/255, green: 182/255, blue: 182/255).opacity(0.35)
 }
 
@@ -466,8 +468,14 @@ struct OriginalEngineEditorView: View {
                     .foregroundStyle(activeTab == tab ? OriginalMobileTheme.ink : OriginalMobileTheme.muted.opacity(0.7))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(activeTab == tab ? OriginalMobileTheme.canvas.opacity(0.42) : Color.clear,
+                    .background(activeTab == tab ? OriginalMobileTheme.accent.opacity(0.20) : Color.clear,
                                 in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(alignment: .bottom) {
+                        if activeTab == tab {
+                            Capsule().fill(LinearGradient(colors: [OriginalMobileTheme.coral, OriginalMobileTheme.accent, OriginalMobileTheme.cyan], startPoint: .leading, endPoint: .trailing))
+                                .frame(height: 3).padding(.horizontal, 15)
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
             }
@@ -510,7 +518,7 @@ struct OriginalEngineEditorView: View {
                                         Text(stock.name.components(separatedBy: " ").prefix(1).joined())
                                             .font(.system(size: 13, weight: .black, design: .rounded))
                                             .lineLimit(1)
-                                        Text("FILM  •  35mm")
+                                        Text("SPECTRAL FILM")
                                             .font(.system(size: 8, weight: .bold, design: .monospaced))
                                     }
                                     .foregroundStyle(.white)
