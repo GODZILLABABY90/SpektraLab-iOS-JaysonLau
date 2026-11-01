@@ -792,11 +792,13 @@ struct OriginalEngineEditorView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("重置" + name)
+                if showControlValues {
                 Text(String(format: "%.2f", value.wrappedValue))
                     .font(.system(size: 11, design: .monospaced))
                     .monospacedDigit()
                     .foregroundStyle(OriginalMobileTheme.ink)
                     .frame(width: 44, alignment: .trailing)
+                }
             }
             Text(subtitle)
                 .font(.system(size: 10))
