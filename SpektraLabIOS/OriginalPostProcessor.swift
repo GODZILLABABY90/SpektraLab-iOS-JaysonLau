@@ -75,11 +75,28 @@ enum OriginalPostProcessor {
         if grade.vibrance != 0 {
             run("CIVibrance", ["inputAmount": grade.vibrance / 100])
         }
-        if grade.clarity != 0 {
+        if grade.clarity > 0 {
             run("CIUnsharpMask", [
                 "inputRadius": 2.5,
-                "inputIntensity": max(0, grade.clarity / 100 * 0.9)
+                "inputIntensity": grade.clarity / 100 * 0.9
             ])
+        } else if grade.clarity < 0 {
+            // Blend a small-radius blur instead of simply clamping negative
+            // clarity to zero. Cropping prevents blurred edge pixels leaking.
+            let blurred = output
+                .clampedToExtent()
+                .applyingFilter("CIGaussianBlur", parameters: [
+                    kCIInputRadiusKey: 1.3
+                ])
+                .cropped(to: extent)
+            if let soften = CIFilter(name: "CIDissolveTransition") {
+                soften.setValue(output, forKey: kCIInputImageKey)
+                soften.setValue(blurred, forKey: "inputTargetImage")
+                soften.setValue(min(0.65, -grade.clarity / 100 * 0.65), forKey: "inputTime")
+                if let next = soften.outputImage {
+                    output = next.cropped(to: extent)
+                }
+            }
         }
         if grade.sharpness != 0 {
             run("CISharpenLuminance", ["inputSharpness": grade.sharpness / 100 * 1.5])
