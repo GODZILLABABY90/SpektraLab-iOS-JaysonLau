@@ -65,12 +65,14 @@ private struct OriginalStock: Identifiable, Hashable {
 
 private enum EditorTab: String, CaseIterable {
     case film = "胶片"
-    case adjustments = "精细调整"
-    case edges = "胶片边框"
+    case adjustments = "暗房"
+    case texture = "质感"
+    case edges = "片边"
     var icon: String {
         switch self {
         case .film: return "camera.filters"
         case .adjustments: return "slider.horizontal.3"
+        case .texture: return "circle.dotted.circle"
         case .edges: return "rectangle.on.rectangle"
         }
     }
@@ -90,6 +92,28 @@ struct OriginalEngineEditorView: View {
     @State private var halationAmount = 1.0
     @State private var magentaFilter = 0.0
     @State private var yellowFilter = 0.0
+    @State private var printBrightness = 0.0
+    @State private var preflash = 0.0
+    @State private var lensBlur = 0.0
+    @State private var scannerBlur = 0.0
+    @State private var grainLayered = true
+    @State private var halationScatter = 1.0
+    @State private var highlightBoost = 0.0
+    @State private var highlightHeadroom = 4.0
+    @State private var removeAntihalation = false
+    @State private var couplersActive = true
+    @State private var couplersAmount = 1.0
+    @State private var glareAmount = 1.0
+    @State private var extendedRange = false
+    @State private var scanFilm = false
+    @State private var edgeView = "strip"
+    @State private var edgeGate = "auto"
+    @State private var edgeHoles = "white"
+    @State private var edgeFog = 1.0
+    @State private var edgeLeaks = 0.0
+    @State private var edgeFrameNumber = 0
+    @State private var exportDimension = 2048
+    @State private var showExportChoices = false
     @State private var processing = false
     @State private var exporting = false
     @State private var queuedExport = false
@@ -103,10 +127,11 @@ struct OriginalEngineEditorView: View {
     @State private var status = "导入照片，使用原版光谱引擎冲印"
 
     private let edgeOptions: [(String, String)] = [
-        ("135", "35mm"), ("135_half", "半格"),
-        ("120_645", "120 · 645"), ("120_6x6", "120 · 6×6"),
+        ("135", "135 · 35mm"), ("135_half", "135 · 半格"),
+        ("120_645", "120 · 6×4.5"), ("120_6x6", "120 · 6×6"),
         ("120_6x7", "120 · 6×7"), ("120_6x8", "120 · 6×8"),
-        ("120_6x9", "120 · 6×9")
+        ("120_6x9", "120 · 6×9"), ("135_xpan", "135 · XPan"),
+        ("120_6x12", "120 · 6×12"), ("120_6x17", "120 · 6×17")
     ]
 
     private var activeImage: UIImage? {
@@ -147,6 +172,7 @@ struct OriginalEngineEditorView: View {
                             switch activeTab {
                             case .film: filmPanel
                             case .adjustments: adjustmentsPanel
+                            case .texture: texturePanel
                             case .edges: edgesPanel
                             }
                             Text(status)
@@ -171,6 +197,18 @@ struct OriginalEngineEditorView: View {
             .navigationTitle("SpektraLab")
             .navigationBarTitleDisplayMode(.inline)
             .preferredColorScheme(.dark)
+            .confirmationDialog("选择导出像素", isPresented: $showExportChoices,
+                                titleVisibility: .visible) {
+                ForEach([1024, 2048, 3072, 4096], id: \.self) { pixels in
+                    Button("最长边 \(pixels) px\(pixels == 2048 ? " · 推荐" : "")") {
+                        exportDimension = pixels
+                        requestExport()
+                    }
+                }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text("按最长边输出，保持照片原始比例；不会放大小于所选尺寸的照片。4096 px 可能占用较多内存。")
+            }
             .onAppear {
                 stocks = OriginalStock.load()
                 if !stocks.contains(where: { $0.id == filmStock && $0.support == "film" }),
@@ -197,6 +235,26 @@ struct OriginalEngineEditorView: View {
             .onChange(of: halationAmount) { _ in schedulePreview() }
             .onChange(of: magentaFilter) { _ in schedulePreview() }
             .onChange(of: yellowFilter) { _ in schedulePreview() }
+            .onChange(of: printBrightness) { _ in schedulePreview() }
+            .onChange(of: preflash) { _ in schedulePreview() }
+            .onChange(of: lensBlur) { _ in schedulePreview() }
+            .onChange(of: scannerBlur) { _ in schedulePreview() }
+            .onChange(of: grainLayered) { _ in schedulePreview() }
+            .onChange(of: halationScatter) { _ in schedulePreview() }
+            .onChange(of: highlightBoost) { _ in schedulePreview() }
+            .onChange(of: highlightHeadroom) { _ in schedulePreview() }
+            .onChange(of: removeAntihalation) { _ in schedulePreview() }
+            .onChange(of: couplersActive) { _ in schedulePreview() }
+            .onChange(of: couplersAmount) { _ in schedulePreview() }
+            .onChange(of: glareAmount) { _ in schedulePreview() }
+            .onChange(of: extendedRange) { _ in schedulePreview() }
+            .onChange(of: scanFilm) { _ in schedulePreview() }
+            .onChange(of: edgeView) { _ in schedulePreview() }
+            .onChange(of: edgeGate) { _ in schedulePreview() }
+            .onChange(of: edgeHoles) { _ in schedulePreview() }
+            .onChange(of: edgeFog) { _ in schedulePreview() }
+            .onChange(of: edgeLeaks) { _ in schedulePreview() }
+            .onChange(of: edgeFrameNumber) { _ in schedulePreview() }
             .onChange(of: pickedPhoto) { item in
                 Task {
                     guard let data = try? await item?.loadTransferable(type: Data.self),
@@ -351,34 +409,92 @@ struct OriginalEngineEditorView: View {
     private var adjustmentsPanel: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("精细调整").font(.headline)
-                    Text("曝光与色彩即时反馈，松开后自动精确显影")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
+                Text("暗房 · 影调与色彩").font(.headline)
                 Spacer()
                 Button("重置") {
-                    exposureEV = 0
-                    grainAmount = 1
-                    halationAmount = 1
-                    magentaFilter = 0
-                    yellowFilter = 0
+                    exposureEV = 0; printBrightness = 0; preflash = 0
+                    magentaFilter = 0; yellowFilter = 0
+                    lensBlur = 0; scannerBlur = 0
+                    extendedRange = false; scanFilm = false
                     schedulePreview(immediate: true)
                 }
-                .font(.subheadline.weight(.semibold))
-                .tint(.orange)
+                .font(.caption.weight(.semibold)).tint(.orange)
             }
-            VStack(spacing: 18) {
-                darkroomSlider("曝光补偿", subtitle: "控制负片曝光 · EV",
-                               value: $exposureEV, range: -2...2)
-                darkroomSlider("胶片颗粒", subtitle: "原版胶片颗粒强度",
-                               value: $grainAmount, range: 0...2)
-                darkroomSlider("光晕效果", subtitle: "高光周围的胶片晕光",
-                               value: $halationAmount, range: 0...4)
-                darkroomSlider("洋红滤镜", subtitle: "洋红 ↔ 绿色",
+            Text("参考原版的负片曝光、放大机与扫描参数")
+                .font(.caption).foregroundStyle(.secondary)
+            VStack(spacing: 17) {
+                darkroomSlider("相机曝光", subtitle: "负片曝光补偿 · EV",
+                               value: $exposureEV, range: -3...3)
+                darkroomSlider("相纸亮度", subtitle: "放大机曝光补偿 · EV",
+                               value: $printBrightness, range: -3...3)
+                darkroomSlider("洋红滤镜", subtitle: "洋红 ↔ 绿色 · ±40 CC",
                                value: $magentaFilter, range: -1...1)
-                darkroomSlider("黄色滤镜", subtitle: "黄色 ↔ 蓝色",
+                darkroomSlider("黄色滤镜", subtitle: "黄色 ↔ 蓝色 · ±40 CC",
                                value: $yellowFilter, range: -1...1)
+                darkroomSlider("相纸预闪", subtitle: "提升暗部层次 · 0–0.03",
+                               value: $preflash, range: 0...0.03)
+            }
+            .padding(14)
+            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+            VStack(spacing: 17) {
+                darkroomSlider("镜头柔化", subtitle: "拍摄镜头模糊 · µm",
+                               value: $lensBlur, range: 0...40)
+                darkroomSlider("扫描柔化", subtitle: "扫描仪镜头模糊",
+                               value: $scannerBlur, range: 0...10)
+                Toggle("扩展动态范围", isOn: $extendedRange).tint(.orange)
+                Toggle("直接扫描底片", isOn: $scanFilm).tint(.orange)
+            }
+            .padding(14)
+            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    private var texturePanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("胶片质感 · 原版物理模型").font(.headline)
+                Spacer()
+                Button("重置") {
+                    grainAmount = 1; halationAmount = 1
+                    grainLayered = true; halationScatter = 1
+                    highlightBoost = 0; highlightHeadroom = 4
+                    removeAntihalation = false; couplersActive = true
+                    couplersAmount = 1; glareAmount = 1
+                    schedulePreview(immediate: true)
+                }
+                .font(.caption.weight(.semibold)).tint(.orange)
+            }
+            Text("颗粒与光晕由原版光谱引擎生成；请放大照片观察细节")
+                .font(.caption).foregroundStyle(.secondary)
+            VStack(spacing: 17) {
+                Text("颗粒").font(.subheadline.weight(.semibold))
+                darkroomSlider("胶片颗粒强度", subtitle: "0 为关闭 · 1 为原版胶片默认",
+                               value: $grainAmount, range: 0...2)
+                Toggle("彩色胶片分层颗粒", isOn: $grainLayered).tint(.orange)
+            }
+            .padding(14)
+            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+            VStack(spacing: 17) {
+                Text("光晕与散射").font(.subheadline.weight(.semibold))
+                darkroomSlider("胶片光晕", subtitle: "背反射光晕强度 · 0–4",
+                               value: $halationAmount, range: 0...4)
+                darkroomSlider("乳剂散射", subtitle: "乳剂内部光散射 · 0–1",
+                               value: $halationScatter, range: 0...1)
+                darkroomSlider("高光光晕增强", subtitle: "为被裁切的亮部恢复光能 · EV",
+                               value: $highlightBoost, range: 0...8)
+                darkroomSlider("高光余量", subtitle: "主要影响无防光晕层的电影胶片",
+                               value: $highlightHeadroom, range: 0...8)
+                Toggle("移除防光晕层", isOn: $removeAntihalation).tint(.orange)
+            }
+            .padding(14)
+            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+            VStack(spacing: 17) {
+                Text("色层与相纸雾化").font(.subheadline.weight(.semibold))
+                Toggle("色层耦合", isOn: $couplersActive).tint(.orange)
+                darkroomSlider("色层耦合强度", subtitle: "影响胶片的颜色分离",
+                               value: $couplersAmount, range: 0...1.5)
+                darkroomSlider("相纸雾化", subtitle: "暗房散射光 · 0–30",
+                               value: $glareAmount, range: 0...30)
             }
             .padding(14)
             .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
@@ -386,28 +502,56 @@ struct OriginalEngineEditorView: View {
     }
 
     private var edgesPanel: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("胶片边框").font(.headline)
-            VStack(alignment: .leading, spacing: 12) {
-                Toggle(isOn: $filmEdge) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("显示胶片边框").font(.subheadline.weight(.semibold))
-                        Text("在预览与导出图片中添加边框")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                .tint(.orange)
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Film Edge · 原版胶片片边").font(.headline)
+            Text("沿用原版的片门、齿孔、底片边码和光漏参数。启用时按胶片画幅比例居中裁剪照片。")
+                .font(.caption).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 15) {
+                Toggle("开启原版 Film Edge", isOn: $filmEdge).tint(.orange)
                 if filmEdge {
-                    Divider().overlay(.white.opacity(0.15))
-                    Picker("胶片画幅", selection: $edgeFormat) {
+                    Picker("胶片格式", selection: $edgeFormat) {
                         ForEach(edgeOptions, id: \.0) { option in
                             Text(option.1).tag(option.0)
                         }
                     }
                     .tint(.orange)
-                    Text("稳定性保护：当前使用安全绘制的胶片边框。原版引擎边框待修复后再启用。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Picker("呈现方式", selection: $edgeView) {
+                        Text("整条胶片 · Strip").tag("strip")
+                        Text("归档片门 · Filed").tag("filed")
+                    }
+                    .tint(.orange)
+                    Picker("片门形状", selection: $edgeGate) {
+                        Text("自动").tag("auto")
+                        Text("直角").tag("square")
+                        Text("圆角").tag("rounded")
+                        Text("耳形").tag("eared")
+                        Text("肩形").tag("shouldered")
+                        Text("切角").tag("kicked")
+                    }
+                    .tint(.orange)
+                    Picker("齿孔颜色", selection: $edgeHoles) {
+                        Text("亮色").tag("white")
+                        Text("暗色").tag("black")
+                    }
+                    .tint(.orange)
+                    darkroomSlider("底片灰雾", subtitle: "原版片边灰雾强度",
+                                   value: $edgeFog, range: 0...4)
+                    darkroomSlider("边缘漏光", subtitle: "原版漏光强度",
+                                   value: $edgeLeaks, range: 0...4)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("画格编号")
+                            Spacer()
+                            Text(edgeFrameNumber == 0 ? "自动" : String(edgeFrameNumber))
+                                .foregroundStyle(.orange)
+                        }
+                        Slider(value: Binding(get: { Double(edgeFrameNumber) },
+                                              set: { edgeFrameNumber = Int($0.rounded()) }),
+                               in: 0...99, step: 1)
+                            .tint(.orange)
+                    }
+                    Text("原版片边仍需实机稳定性验证。如开启后闪退，请记录机型和崩溃日志。")
+                        .font(.caption).foregroundStyle(.orange)
                 }
             }
             .padding(14)
@@ -425,12 +569,12 @@ struct OriginalEngineEditorView: View {
             .buttonStyle(.bordered)
             .tint(.white)
             Button {
-                requestExport()
+                showExportChoices = true
             } label: {
                 HStack(spacing: 7) {
                     if exporting { ProgressView().tint(.black) }
                     else { Image(systemName: "square.and.arrow.down") }
-                    Text(queuedExport ? "等待导出" : "保存照片")
+                    Text(queuedExport ? "等待导出" : "导出 · 像素")
                 }
                 .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity).frame(height: 42)
@@ -475,7 +619,7 @@ struct OriginalEngineEditorView: View {
                 try? await Task.sleep(nanoseconds: 280_000_000)
             }
             guard !Task.isCancelled, revision == previewRevision else { return }
-            develop(maxDimension: 800, saveAfter: false)
+            develop(maxDimension: 1400, saveAfter: false)
         }
     }
 
@@ -486,7 +630,7 @@ struct OriginalEngineEditorView: View {
         previewRevision += 1
         if !processing {
             queuedExport = false
-            develop(maxDimension: 1600, saveAfter: true)
+            develop(maxDimension: exportDimension, saveAfter: true)
         }
     }
 
@@ -527,13 +671,11 @@ struct OriginalEngineEditorView: View {
             // film/paper render and compose a safe border after rendering.
             let renderedImage = OriginalFilmRenderer.renderImageWithoutThrow(
                 source, filmStock: film, printStock: paper,
-                enableEdge: false, edgeFormat: format,
+                enableEdge: edges, edgeFormat: format,
                 exposureEV: exposure, grainAmount: grain, halationAmount: halation,
                 magenta: magenta, yellow: yellow,
                 maxDimension: maxDimension, errorMessage: nativeMessage)
-            let result = renderedImage.flatMap {
-                edges ? Self.safeFilmBorder($0, format: format, filmName: film) : $0
-            }
+            let result = renderedImage
             let renderFailure = nativeMessage.length > 0 ? (nativeMessage as String) : nil
             DispatchQueue.main.async {
                 processing = false
