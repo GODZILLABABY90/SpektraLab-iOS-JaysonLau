@@ -27,12 +27,6 @@ jobs:
       - name: Build original Metal shaders for iPhoneOS
         if: always()
         run: bash scripts/probe-upstream-metal-ios.sh
-      - name: Compile original Metal shaders for iPhoneOS
-        if: success()
-        run: bash scripts/probe-upstream-metal-ios.sh
-      - name: Compile upstream Metal shaders for iPhoneOS
-        if: always()
-        run: bash scripts/probe-upstream-metal-ios.sh
       - name: Package original iOS core XCFramework
         if: always()
         run: |
