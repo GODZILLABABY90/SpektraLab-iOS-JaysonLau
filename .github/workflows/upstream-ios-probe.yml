@@ -30,6 +30,12 @@ jobs:
       - name: Compile upstream Metal shaders for iPhoneOS
         if: always()
         run: bash scripts/probe-upstream-metal-ios.sh
+      - name: Package original iOS core XCFramework
+        if: always()
+        run: |
+          if test -f build/upstream-probe/libspektralab-core-ios.a; then
+            bash scripts/package-upstream-core-ios.sh
+          fi
       - name: Upload iOS native build outputs and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
