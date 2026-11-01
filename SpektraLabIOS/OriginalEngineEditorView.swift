@@ -145,6 +145,7 @@ struct OriginalEngineEditorView: View {
     @State private var pendingPreview: Task<Void, Never>?
     @State private var showInput = false
     @State private var previewZoom = false
+    @State private var showControlValues = true
     @State private var status = "导入照片，使用原版光谱引擎冲印"
 
     private let edgeOptions: [(String, String)] = [
