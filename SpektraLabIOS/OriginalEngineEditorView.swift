@@ -604,7 +604,7 @@ struct OriginalEngineEditorView: View {
             Text("颗粒与光晕由原版光谱引擎生成；请放大照片观察细节")
                 .font(.caption).foregroundStyle(.secondary)
             VStack(spacing: 17) {
-                Text("颗粒").font(.subheadline.weight(.semibold))
+                Label("颗粒", systemImage: "circle.hexagongrid.fill").font(.subheadline.weight(.semibold))
                 darkroomSlider("胶片颗粒强度", subtitle: "0 为关闭 · 1 为原版胶片默认",
                                value: $grainAmount, range: 0...2)
                 Toggle("彩色胶片分层颗粒", isOn: $grainLayered).tint(OriginalMobileTheme.accent)
