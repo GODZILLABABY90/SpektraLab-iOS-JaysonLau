@@ -62,6 +62,19 @@ private struct OriginalStock: Identifiable, Hashable {
     }
 }
 
+private enum EditorTab: String, CaseIterable {
+    case film = "胶片"
+    case adjustments = "精细调整"
+    case edges = "胶片边框"
+    var icon: String {
+        switch self {
+        case .film: return "camera.filters"
+        case .adjustments: return "slider.horizontal.3"
+        case .edges: return "rectangle.on.rectangle"
+        }
+    }
+}
+
 struct OriginalEngineEditorView: View {
     @State private var pickedPhoto: PhotosPickerItem?
     @State private var input: UIImage?
@@ -77,6 +90,9 @@ struct OriginalEngineEditorView: View {
     @State private var magentaFilter = 0.0
     @State private var yellowFilter = 0.0
     @State private var processing = false
+    @State private var exporting = false
+    @State private var queuedExport = false
+    @State private var activeTab: EditorTab = .film
     @State private var previewRevision = 0
     @State private var pendingPreview: Task<Void, Never>?
     @State private var showInput = false
@@ -96,129 +112,45 @@ struct OriginalEngineEditorView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 19) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(white: 0.1))
-                        if let image = activeImage {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxWidth: .infinity)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                        } else {
-                            ContentUnavailableView("选择一张照片", systemImage: "photo",
-                                description: Text("从相册导入，使用原版胶片与相纸模型模拟显影"))
-                                .frame(minHeight: 290)
-                        }
-                    }
-                    .frame(minHeight: 230)
-                    .overlay(alignment: .topTrailing) {
-                        if developed != nil {
-                            Button(showInput ? "原图" : "显影结果") {
-                                showInput.toggle()
+            GeometryReader { geometry in
+                VStack(spacing: 0) {
+                    // The preview is outside the scrollable editor. It remains
+                    // visible while dragging any of the darkroom controls.
+                    previewPanel
+                        .frame(height: max(205, min(geometry.size.height * 0.42, 370)))
+
+                    Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
+                    tabBar
+                    Rectangle().fill(Color.white.opacity(0.10)).frame(height: 1)
+
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 14) {
+                            switch activeTab {
+                            case .film: filmPanel
+                            case .adjustments: adjustmentsPanel
+                            case .edges: edgesPanel
                             }
-                            .font(.caption.weight(.medium))
-                            .padding(8)
-                            .background(.black.opacity(0.72))
-                            .clipShape(Capsule())
-                            .padding(12)
+                            Text(status)
+                                .font(.footnote)
+                                .foregroundStyle(status.hasPrefix("失败") ? .red : .secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text("原版 SpektraLab 光谱胶片引擎 · GPL-3.0-or-later")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
+                        .padding(16)
                     }
+                    .scrollIndicators(.hidden)
+                    .frame(maxHeight: .infinity)
 
-                    PhotosPicker(selection: $pickedPhoto, matching: .images) {
-                        Label("导入照片", systemImage: "photo.on.rectangle")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    Text("原版胶片与相纸")
-                        .font(.caption.weight(.semibold)).tracking(2)
-                        .foregroundStyle(.orange)
-
-                    VStack(alignment: .leading, spacing: 15) {
-                        Picker("胶片", selection: $filmStock) {
-                            if stocks.filter({ $0.support == "film" }).isEmpty {
-                                Text("柯达 Portra 400 · 人像负片").tag("kodak_portra_400")
-                            } else {
-                                ForEach(stocks.filter { $0.support == "film" }) { stock in
-                                    Text(stock.chineseName).tag(stock.id)
-                                }
-                            }
-                        }
-                        Picker("相纸", selection: $paperStock) {
-                            if stocks.filter({ $0.support == "paper" }).isEmpty {
-                                Text("柯达 Supra Endura · 相纸").tag("kodak_supra_endura")
-                            } else {
-                                ForEach(stocks.filter { $0.support == "paper" }) { stock in
-                                    Text(stock.name).tag(stock.id)
-                                }
-                            }
-                        }
-                        Toggle("原版 Film Edge 胶片边缘", isOn: $filmEdge)
-                            .tint(.orange)
-                        if filmEdge {
-                            Picker("胶片画幅", selection: $edgeFormat) {
-                                ForEach(edgeOptions, id: \.0) { option in
-                                    Text(option.1).tag(option.0)
-                                }
-                            }
-                        }
-                    }
-                    .padding(14)
-                    .background(Color(white: 0.14), in: RoundedRectangle(cornerRadius: 12))
-
-                    Text("暗房精细调整")
-                        .font(.caption.weight(.semibold)).tracking(2)
-                        .foregroundStyle(.orange)
-                    VStack(alignment: .leading, spacing: 10) {
-                        darkroomSlider("相机曝光", value: $exposureEV, range: -2...2)
-                        darkroomSlider("真实胶片颗粒", value: $grainAmount, range: 0...2)
-                        darkroomSlider("胶片光晕 Halation", value: $halationAmount, range: 0...4)
-                        darkroomSlider("放大机洋红滤镜", value: $magentaFilter, range: -1...1)
-                        darkroomSlider("放大机黄色滤镜", value: $yellowFilter, range: -1...1)
-                    }
-                    .padding(14)
-                    .background(Color(white: 0.14), in: RoundedRectangle(cornerRadius: 12))
-
-                    Button {
-                        develop(maxDimension: 1200, saveAfter: false)
-                    } label: {
-                        HStack {
-                            if processing { ProgressView().tint(.black) }
-                            Text("使用原版引擎显影")
-                            Spacer()
-                            Image(systemName: "camera.filters")
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.orange)
-                    .disabled(input == nil || processing)
-
-                    Button {
-                        develop(maxDimension: 1600, saveAfter: true)
-                    } label: {
-                        Label("安全导出到相册（最长边 1600px）",
-                              systemImage: "square.and.arrow.down")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(input == nil || processing)
-
-                    Text(status)
-                        .font(.footnote)
-                        .foregroundStyle(status.hasPrefix("失败") ? .red : .secondary)
-                    Text("SpektraLab 原版 C++ / Metal 光谱引擎 · 81 波长模拟 · GPL-3.0-or-later")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    bottomBar
                 }
-                .padding()
+                .frame(width: geometry.size.width, height: geometry.size.height)
             }
-            .background(.black)
+            .background(Color(red: 0.055, green: 0.055, blue: 0.065))
             .foregroundStyle(.white)
             .navigationTitle("SpektraLab")
+            .navigationBarTitleDisplayMode(.inline)
             .preferredColorScheme(.dark)
             .onAppear {
                 stocks = OriginalStock.load()
@@ -263,38 +195,277 @@ struct OriginalEngineEditorView: View {
         }
     }
 
-    private func darkroomSlider(_ name: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
-        VStack(spacing: 4) {
-            HStack {
-                Text(name)
-                Spacer()
-                Text(String(format: "%.2f", value.wrappedValue))
-                    .foregroundStyle(.secondary).monospacedDigit()
+    private var previewPanel: some View {
+        GeometryReader { area in
+            ZStack {
+                Color.black
+                if let image = activeImage {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: area.size.width, height: area.size.height)
+                } else {
+                    VStack(spacing: 12) {
+                        Image(systemName: "photo.artframe")
+                            .font(.system(size: 42, weight: .ultraLight))
+                            .foregroundStyle(.white.opacity(0.45))
+                        Text("导入照片开始胶片冲印")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.75))
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                VStack {
+                    HStack {
+                        Text("实时预览")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(.black.opacity(0.55), in: Capsule())
+                        Spacer()
+                        if developed != nil {
+                            Button {
+                                showInput.toggle()
+                            } label: {
+                                Label(showInput ? "返回效果" : "对比原图",
+                                      systemImage: "square.on.square")
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 10).padding(.vertical, 6)
+                                    .background(.black.opacity(0.65), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    Spacer()
+                    if processing {
+                        HStack(spacing: 8) {
+                            ProgressView().tint(.orange)
+                            Text(exporting ? "正在导出…" : "正在更新胶片预览…")
+                                .font(.caption)
+                        }
+                        .padding(.horizontal, 12).padding(.vertical, 7)
+                        .background(.black.opacity(0.72), in: Capsule())
+                    }
+                }
+                .padding(12)
             }
-            Slider(value: value, in: range).tint(.orange)
+            .clipped()
         }
     }
 
-    private func schedulePreview() {
-        // Retain the last developed frame until the replacement finishes.
-        // Otherwise every slider edit appears to reset the image to the original.
-        status = "参数已更新，正在刷新预览…"
+    private var tabBar: some View {
+        HStack(spacing: 6) {
+            ForEach(EditorTab.allCases, id: \.self) { tab in
+                Button {
+                    activeTab = tab
+                } label: {
+                    VStack(spacing: 6) {
+                        Image(systemName: tab.icon).font(.system(size: 17))
+                        Text(tab.rawValue).font(.caption.weight(.medium))
+                    }
+                    .foregroundStyle(activeTab == tab ? Color.orange : Color.white.opacity(0.64))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(activeTab == tab ? Color.orange.opacity(0.11) : Color.clear,
+                                in: RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 6)
+    }
+
+    private var filmPanel: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("胶片模拟").font(.headline)
+                    Text("选择胶片与相纸，照片会自动更新")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("重新显影") {
+                    schedulePreview(immediate: true)
+                }
+                .font(.caption.weight(.semibold))
+                .disabled(input == nil)
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                Text("胶片类型").font(.subheadline.weight(.semibold))
+                Picker("胶片类型", selection: $filmStock) {
+                    if stocks.filter({ $0.support == "film" }).isEmpty {
+                        Text("柯达 Portra 400 · 人像负片").tag("kodak_portra_400")
+                    } else {
+                        ForEach(stocks.filter { $0.support == "film" }) { stock in
+                            Text(stock.chineseName).tag(stock.id)
+                        }
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(.orange)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(14)
+            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("相纸类型").font(.subheadline.weight(.semibold))
+                Picker("相纸类型", selection: $paperStock) {
+                    if stocks.filter({ $0.support == "paper" }).isEmpty {
+                        Text("柯达 Supra Endura · 相纸").tag("kodak_supra_endura")
+                    } else {
+                        ForEach(stocks.filter { $0.support == "paper" }) { stock in
+                            Text(stock.chineseName).tag(stock.id)
+                        }
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(.orange)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(14)
+            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    private var adjustmentsPanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("精细调整").font(.headline)
+                    Text("松开滑块后自动精确显影，预览始终固定在上方")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("重置") {
+                    exposureEV = 0
+                    grainAmount = 1
+                    halationAmount = 1
+                    magentaFilter = 0
+                    yellowFilter = 0
+                    schedulePreview(immediate: true)
+                }
+                .font(.subheadline.weight(.semibold))
+                .tint(.orange)
+            }
+            VStack(spacing: 18) {
+                darkroomSlider("曝光补偿", subtitle: "控制负片曝光 · EV",
+                               value: $exposureEV, range: -2...2)
+                darkroomSlider("胶片颗粒", subtitle: "原版胶片颗粒强度",
+                               value: $grainAmount, range: 0...2)
+                darkroomSlider("光晕效果", subtitle: "高光周围的胶片晕光",
+                               value: $halationAmount, range: 0...4)
+                darkroomSlider("洋红滤镜", subtitle: "洋红 ↔ 绿色",
+                               value: $magentaFilter, range: -1...1)
+                darkroomSlider("黄色滤镜", subtitle: "黄色 ↔ 蓝色",
+                               value: $yellowFilter, range: -1...1)
+            }
+            .padding(14)
+            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    private var edgesPanel: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("胶片边框").font(.headline)
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle(isOn: $filmEdge) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("显示胶片边框").font(.subheadline.weight(.semibold))
+                        Text("在预览与导出图片中添加边框")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .tint(.orange)
+                if filmEdge {
+                    Divider().overlay(.white.opacity(0.15))
+                    Picker("胶片画幅", selection: $edgeFormat) {
+                        ForEach(edgeOptions, id: \.0) { option in
+                            Text(option.1).tag(option.0)
+                        }
+                    }
+                    .tint(.orange)
+                    Text("稳定性保护：当前使用安全绘制的胶片边框。原版引擎边框待修复后再启用。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(14)
+            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    private var bottomBar: some View {
+        HStack(spacing: 12) {
+            PhotosPicker(selection: $pickedPhoto, matching: .images) {
+                Label("导入", systemImage: "photo.on.rectangle")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity).frame(height: 42)
+            }
+            .buttonStyle(.bordered)
+            .tint(.white)
+            Button {
+                requestExport()
+            } label: {
+                HStack(spacing: 7) {
+                    if exporting { ProgressView().tint(.black) }
+                    else { Image(systemName: "square.and.arrow.down") }
+                    Text(queuedExport ? "等待导出" : "保存照片")
+                }
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity).frame(height: 42)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+            .disabled(input == nil || exporting || queuedExport)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 9)
+        .background(Color(white: 0.105))
+    }
+
+    private func darkroomSlider(_ name: String, subtitle: String,
+                                value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(name).font(.subheadline.weight(.semibold))
+                Spacer()
+                Text(String(format: "%.2f", value.wrappedValue))
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundStyle(.orange)
+            }
+            Text(subtitle).font(.caption2).foregroundStyle(.secondary)
+            Slider(value: value, in: range, onEditingChanged: { editing in
+                if !editing { schedulePreview(immediate: true) }
+            })
+            .tint(.orange)
+        }
+    }
+
+    private func schedulePreview(immediate: Bool = false) {
         previewRevision += 1
         let revision = previewRevision
         pendingPreview?.cancel()
-        guard input != nil else { return }
+        guard input != nil, !queuedExport, !exporting else { return }
+        status = "调整已应用，正在刷新预览…"
+        // If a native render is in flight, the revision check in its completion
+        // queues exactly one new render with the latest slider values.
+        guard !processing else { return }
         pendingPreview = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 250_000_000)
+            if !immediate {
+                try? await Task.sleep(nanoseconds: 280_000_000)
+            }
             guard !Task.isCancelled, revision == previewRevision else { return }
-            if !processing { develop(maxDimension: 800, saveAfter: false) }
+            develop(maxDimension: 800, saveAfter: false)
         }
     }
 
-    private func schedulePreviewAfterStaleRender() {
+    private func requestExport() {
+        guard input != nil, !exporting else { return }
         pendingPreview?.cancel()
-        pendingPreview = Task { @MainActor in
-            guard input != nil else { return }
-            develop(maxDimension: 1000, saveAfter: false)
+        queuedExport = true
+        previewRevision += 1
+        if !processing {
+            queuedExport = false
+            develop(maxDimension: 1600, saveAfter: true)
         }
     }
 
@@ -316,13 +487,10 @@ struct OriginalEngineEditorView: View {
 
     private func develop(maxDimension: Int, saveAfter: Bool) {
         guard let source = input, !processing else { return }
-        if saveAfter {
-            pendingPreview?.cancel()
-            previewRevision += 1
-        }
         processing = true
+        exporting = saveAfter
         let revisionAtStart = previewRevision
-        status = "正在调用原版光谱渲染引擎…"
+        status = saveAfter ? "正在生成高清照片…" : "正在使用原版光谱引擎显影…"
         let film = filmStock
         let paper = paperStock
         let edges = filmEdge
@@ -334,19 +502,28 @@ struct OriginalEngineEditorView: View {
         let yellow = yellowFilter
         DispatchQueue.global(qos: .userInitiated).async {
             let nativeMessage = NSMutableString(string: "")
+            // Native overscan has caused device crashes. Keep the original
+            // film/paper render and compose a safe border after rendering.
             let renderedImage = OriginalFilmRenderer.renderImageWithoutThrow(
                 source, filmStock: film, printStock: paper,
-                enableEdge: edges, edgeFormat: format,
+                enableEdge: false, edgeFormat: format,
                 exposureEV: exposure, grainAmount: grain, halationAmount: halation,
                 magenta: magenta, yellow: yellow,
                 maxDimension: maxDimension, errorMessage: nativeMessage)
-            let failureMessage = nativeMessage.length > 0 ? (nativeMessage as String) : nil
-            let result = renderedImage
-            let renderFailure = failureMessage
+            let result = renderedImage.flatMap {
+                edges ? Self.safeFilmBorder($0, format: format, filmName: film) : $0
+            }
+            let renderFailure = nativeMessage.length > 0 ? (nativeMessage as String) : nil
             DispatchQueue.main.async {
                 processing = false
-                if revisionAtStart != previewRevision {
-                    schedulePreviewAfterStaleRender()
+                exporting = false
+                if queuedExport {
+                    queuedExport = false
+                    develop(maxDimension: 1600, saveAfter: true)
+                    return
+                }
+                if !saveAfter && revisionAtStart != previewRevision {
+                    schedulePreview(immediate: true)
                     return
                 }
                 if let result {
@@ -356,10 +533,62 @@ struct OriginalEngineEditorView: View {
                         status = "渲染完成，正在保存到相册…"
                         saveToPhotos(result)
                     } else {
-                        status = "原版胶片 / 相纸渲染完成"
+                        status = "预览已更新"
                     }
                 } else {
                     status = "失败：" + (renderFailure ?? "原版引擎无法完成显影")
+                }
+                // A parameter edit made during export still gets a new preview.
+                if saveAfter && revisionAtStart != previewRevision {
+                    schedulePreview()
+                }
+            }
+        }
+    }
+
+    // Safe, CPU-drawn border until the upstream overscan Metal path can be
+    // diagnosed on a physical iPhone. Not represented as the original border.
+    private static func safeFilmBorder(_ image: UIImage, format: String,
+                                       filmName: String) -> UIImage {
+        let width = image.size.width
+        let height = image.size.height
+        let landscape = width >= height
+        let band = max(24, min(width, height) * 0.095)
+        let canvas = landscape ? CGSize(width: width, height: height + band * 2)
+                               : CGSize(width: width + band * 2, height: height)
+        let photoRect = landscape ? CGRect(x: 0, y: band, width: width, height: height)
+                                  : CGRect(x: band, y: 0, width: width, height: height)
+        let settings = UIGraphicsImageRendererFormat.default()
+        settings.scale = 1
+        settings.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: canvas, format: settings)
+        return renderer.image { _ in
+            UIColor(red: 0.085, green: 0.075, blue: 0.065, alpha: 1).setFill()
+            UIRectFill(CGRect(origin: .zero, size: canvas))
+            image.draw(in: photoRect)
+            if format.hasPrefix("135") {
+                let length = landscape ? width : height
+                let count = max(4, Int(length / 42))
+                let holeLong = max(9, band * 0.42)
+                let holeShort = max(6, band * 0.26)
+                UIColor(white: 0.76, alpha: 1).setFill()
+                for i in 0..<count {
+                    let along = (CGFloat(i) + 0.5) * length / CGFloat(count)
+                    for side in 0..<2 {
+                        let rect: CGRect
+                        if landscape {
+                            rect = CGRect(x: along - holeLong / 2,
+                                          y: side == 0 ? (band - holeShort) / 2
+                                                       : band + height + (band - holeShort) / 2,
+                                          width: holeLong, height: holeShort)
+                        } else {
+                            rect = CGRect(x: side == 0 ? (band - holeShort) / 2
+                                                       : band + width + (band - holeShort) / 2,
+                                          y: along - holeLong / 2,
+                                          width: holeShort, height: holeLong)
+                        }
+                        UIBezierPath(roundedRect: rect, cornerRadius: holeShort * 0.2).fill()
+                    }
                 }
             }
         }
