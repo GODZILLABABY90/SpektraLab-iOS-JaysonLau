@@ -193,6 +193,7 @@ static NSString *SPKEngineError(spk_engine *engine) {
             return nil;
         }
 
+        NSLog(@"SpektraLab native: render started %zux%zu, film=%@, paper=%@", width, height, filmStock, printStock);
         spk_result result = {};
         const spk_status status = spk_render(session.get(), "full", &result);
         if (status != SPK_OK || !result.rgba16 || !result.width || !result.height) {
@@ -202,6 +203,8 @@ static NSString *SPKEngineError(spk_engine *engine) {
             return nil;
         }
 
+        NSLog(@"SpektraLab native: render completed status=%d output=%ux%u stride=%u",
+              (int)status, result.width, result.height, result.row_stride_px);
         const size_t w = result.width, h = result.height;
         // The native ABI returns a row stride in pixels, not bytes. Validate
         // it before reading the 16-bit RGBA buffer to avoid out-of-bounds access.
@@ -225,15 +228,28 @@ static NSString *SPKEngineError(spk_engine *engine) {
         }
         spk_result_free(&result);
 
-        CGContextRef outputCtx = CGBitmapContextCreate(output.data(), w, h, 8,
-                         w * 4, srgb, CGBitmapInfo(kCGBitmapByteOrder32Big | static_cast<CGBitmapInfo>(kCGImageAlphaPremultipliedLast)));
-        CGColorSpaceRelease(srgb);
-        if (!outputCtx) {
-            if (error) *error = SPKIosError(@"Could not allocate output image");
+        // Own the pixel storage for the full lifetime of the returned CGImage.
+        // A CGBitmapContext backed by a temporary std::vector can otherwise
+        // leave CoreGraphics/UIImage referring to freed caller-owned memory.
+        CFDataRef pixelData = CFDataCreate(kCFAllocatorDefault, output.data(),
+                                          static_cast<CFIndex>(output.size()));
+        if (!pixelData) {
+            CGColorSpaceRelease(srgb);
+            if (error) *error = SPKIosError(@"Could not retain output pixels");
             return nil;
         }
-        CGImageRef resultCG = CGBitmapContextCreateImage(outputCtx);
-        CGContextRelease(outputCtx);
+        CGDataProviderRef provider = CGDataProviderCreateWithCFData(pixelData);
+        CFRelease(pixelData);
+        if (!provider) {
+            CGColorSpaceRelease(srgb);
+            if (error) *error = SPKIosError(@"Could not create output pixel provider");
+            return nil;
+        }
+        CGImageRef resultCG = CGImageCreate(w, h, 8, 32, w * 4, srgb,
+                           CGBitmapInfo(kCGBitmapByteOrder32Big | static_cast<CGBitmapInfo>(kCGImageAlphaPremultipliedLast)),
+                           provider, nullptr, false, kCGRenderingIntentDefault);
+        CGDataProviderRelease(provider);
+        CGColorSpaceRelease(srgb);
         if (!resultCG) {
             if (error) *error = SPKIosError(@"Could not form rendered image");
             return nil;
