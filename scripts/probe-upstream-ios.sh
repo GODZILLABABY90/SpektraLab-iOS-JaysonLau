@@ -18,9 +18,9 @@ passes=0
 for file in "$CORE"/*.cpp; do
   name="$(basename "$file" .cpp)"
   echo "=== Probing $name for arm64 iOS ==="
-  if "$CXX" -std=c++20 -fsyntax-only -target arm64-apple-ios17.0 -isysroot "$SDK" \
+  if "$CXX" -std=c++20 -O2 -c -target arm64-apple-ios17.0 -isysroot "$SDK" \
     -I"$CORE" -I"$UPSTREAM_DIR/engine/include" -I"$UPSTREAM_DIR/engine/src" \
-    "$file" >"$ROOT/build/upstream-probe/$name.log" 2>&1; then
+    "$file" -o "$ROOT/build/upstream-probe/$name.o" >"$ROOT/build/upstream-probe/$name.log" 2>&1; then
     echo "PASS $name" | tee -a "$ROOT/build/upstream-probe/results.txt"
     passes=$((passes+1))
   else
@@ -31,3 +31,8 @@ for file in "$CORE"/*.cpp; do
 done
 printf 'Passed: %s; failed: %s\n' "$passes" "$failures" | tee -a "$ROOT/build/upstream-probe/results.txt"
 # This is an exploratory diagnostic gate. Keep the existing IPA build independent.
+
+if [ "$failures" -eq 0 ]; then
+  xcrun --sdk iphoneos ar rcs "$ROOT/build/upstream-probe/libspektralab-core-ios.a" "$ROOT"/build/upstream-probe/*.o
+  echo "Original C++ core static library produced" | tee -a "$ROOT/build/upstream-probe/results.txt"
+fi
