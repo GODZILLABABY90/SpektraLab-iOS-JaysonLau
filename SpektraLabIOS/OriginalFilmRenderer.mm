@@ -38,6 +38,7 @@ static NSString *SPKEngineError(spk_engine *engine) {
                             magenta:(double)magenta
                              yellow:(double)yellow
                        maxDimension:(NSInteger)maxDimension
+                             options:(NSDictionary<NSString *, id> *)options
                        errorMessage:(NSMutableString *)errorMessage {
     NSError *nativeError = nil;
     UIImage *result = [self renderImage:image
@@ -51,6 +52,7 @@ static NSString *SPKEngineError(spk_engine *engine) {
                                magenta:magenta
                                 yellow:yellow
                            maxDimension:maxDimension
+                                options:options
                                   error:&nativeError];
     if (!result && errorMessage) {
         NSString *message = @"Original engine returned no image";
@@ -76,6 +78,7 @@ static NSString *SPKEngineError(spk_engine *engine) {
                            magenta:(double)magenta
                             yellow:(double)yellow
             maxDimension:(NSInteger)maxDimension
+                 options:(NSDictionary<NSString *, id> *)options
                    error:(NSError * _Nullable __autoreleasing *)error {
     @autoreleasepool {
         if (!image || maxDimension < 1) {
@@ -104,6 +107,36 @@ static NSString *SPKEngineError(spk_engine *engine) {
             [image drawInRect:(CGRect){CGPointZero, target}];
         }];
         CGImageRef inputCG = normalized.CGImage;
+        CGImageRef croppedInput = nullptr;
+        // Original Film Edge expects the image to have the camera gate's exact
+        // aspect ratio. Crop to that gate before opening the native session.
+        // Previously arbitrary 4:3 photos were sent as 135 (3:2), causing
+        // the upstream overscan layout to reject them or misallocate.
+        if ([options[@"overscan_active"] boolValue]) {
+            NSString *edgeFormat = options[@"overscan_format"] ?: @"135";
+            double gateLong = 36.0, gateShort = 24.0;
+            if ([edgeFormat isEqualToString:@"135_half"]) { gateLong = 24; gateShort = 18; }
+            else if ([edgeFormat isEqualToString:@"120_645"]) { gateLong = 56; gateShort = 41.5; }
+            else if ([edgeFormat isEqualToString:@"120_6x6"]) { gateLong = 56; gateShort = 56; }
+            else if ([edgeFormat isEqualToString:@"120_6x7"]) { gateLong = 69.5; gateShort = 56; }
+            else if ([edgeFormat isEqualToString:@"120_6x8"]) { gateLong = 76; gateShort = 56; }
+            else if ([edgeFormat isEqualToString:@"120_6x9"]) { gateLong = 84; gateShort = 56; }
+            else if ([edgeFormat isEqualToString:@"135_xpan"]) { gateLong = 65; gateShort = 24; }
+            else if ([edgeFormat isEqualToString:@"120_6x12"]) { gateLong = 112; gateShort = 56; }
+            else if ([edgeFormat isEqualToString:@"120_6x17"]) { gateLong = 168; gateShort = 56; }
+            const size_t sourceW = CGImageGetWidth(inputCG);
+            const size_t sourceH = CGImageGetHeight(inputCG);
+            const double aspect = sourceW >= sourceH ? gateLong / gateShort : gateShort / gateLong;
+            size_t cropW = sourceW, cropH = sourceH;
+            if (double(sourceW) / double(sourceH) > aspect) {
+                cropW = std::max(size_t(1), size_t(std::floor(double(sourceH) * aspect)));
+            } else {
+                cropH = std::max(size_t(1), size_t(std::floor(double(sourceW) / aspect)));
+            }
+            const CGRect rect = CGRectMake((sourceW - cropW) / 2, (sourceH - cropH) / 2, cropW, cropH);
+            croppedInput = CGImageCreateWithImageInRect(inputCG, rect);
+            if (croppedInput) inputCG = croppedInput;
+        }
         if (!inputCG) {
             if (error) *error = SPKIosError(@"Could not decode the selected image");
             return nil;
@@ -130,6 +163,7 @@ static NSString *SPKEngineError(spk_engine *engine) {
         // flipping the CTM here inverted the image supplied to the film engine.
         CGContextDrawImage(bitmap, CGRectMake(0, 0, width, height), inputCG);
         CGContextRelease(bitmap);
+        if (croppedInput) CGImageRelease(croppedInput);
 
         std::vector<float> input(width * height * 3);
         for (size_t i = 0, count = width * height; i < count; ++i) {
@@ -147,7 +181,7 @@ static NSString *SPKEngineError(spk_engine *engine) {
             return nil;
         }
 
-        NSDictionary *parameters = @{
+        NSMutableDictionary *parameters = [@{
             @"film_stock": filmStock.length ? filmStock : @"kodak_portra_400",
             @"print_stock": printStock.length ? printStock : @"kodak_supra_endura",
             @"auto_exposure": @YES,
@@ -172,7 +206,8 @@ static NSString *SPKEngineError(spk_engine *engine) {
             @"halation_amount": @(halationAmount),
             @"m_filter_shift": @(magenta),
             @"y_filter_shift": @(yellow)
-        };
+        } mutableCopy];
+        if (options.count) [parameters addEntriesFromDictionary:options];
         NSData *jsonData = [NSJSONSerialization dataWithJSONObject:parameters options:0 error:error];
         if (!jsonData) {
             CGColorSpaceRelease(srgb);
