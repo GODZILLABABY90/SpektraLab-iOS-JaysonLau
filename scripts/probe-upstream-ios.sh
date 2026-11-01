@@ -9,13 +9,15 @@ if [ ! -d "$UPSTREAM_DIR/.git" ]; then
   git clone --filter=blob:none --no-checkout https://github.com/JamesQiu2005/SpektraLab.git "$UPSTREAM_DIR"
 fi
 git -C "$UPSTREAM_DIR" checkout --detach 267ee24380091e5bee87658d00f6c33d77321194
- git -C "$UPSTREAM_DIR" rev-parse HEAD | tee "$ROOT/build/upstream-revision.txt"
+git -C "$UPSTREAM_DIR" rev-parse HEAD | tee "$ROOT/build/upstream-revision.txt"
 SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
 CXX="$(xcrun --sdk iphoneos --find clang++)"
 CORE="$UPSTREAM_DIR/engine/src/core"
+if [ ! -d "$CORE" ]; then echo "Missing original upstream core source directory" >&2; exit 2; fi
 mkdir -p "$ROOT/build/upstream-probe"
 failures=0
 passes=0
+: > "$ROOT/build/upstream-probe/results.txt"
 for file in "$CORE"/*.cpp; do
   name="$(basename "$file" .cpp)"
   echo "=== Probing $name for arm64 iOS ==="
@@ -33,7 +35,7 @@ done
 printf 'Passed: %s; failed: %s\n' "$passes" "$failures" | tee -a "$ROOT/build/upstream-probe/results.txt"
 # This is an exploratory diagnostic gate. Keep the existing IPA build independent.
 
-if [ "$failures" -eq 0 ]; then
+if [ "$failures" -eq 0 ] && [ "$passes" -gt 0 ]; then
   "$CXX" -std=c++20 -O2 -c -target arm64-apple-ios17.0 -isysroot "$SDK" \
     -I"$CORE" -I"$UPSTREAM_DIR/engine/include" -I"$UPSTREAM_DIR/engine/src" \
     "$ROOT/native/UpstreamBridge.cpp" -o "$ROOT/build/upstream-probe/UpstreamBridge.o"
@@ -45,10 +47,8 @@ if [ "$failures" -eq 0 ]; then
   cp "$UPSTREAM_DIR/README.md" "$ROOT/build/upstream-probe/license-notices/UPSTREAM-README.md"
 fi
 
-# Mark the probe unsuccessful when any upstream source is incompatible.
-if [ "$failures" -ne 0 ]; then exit 1; fi
 
-if [ "$failures" -ne 0 ]; then
-  echo "Original upstream core is not yet fully portable to iOS: $failures failures" >&2
+if [ "$failures" -ne 0 ] || [ "$passes" -eq 0 ]; then
+  echo "Original upstream core compilation incomplete: $passes passed, $failures failed" >&2
   exit 1
 fi
