@@ -15,6 +15,7 @@ NS_ASSUME_NONNULL_BEGIN
                            magenta:(double)magenta
                             yellow:(double)yellow
                      maxDimension:(NSInteger)maxDimension
+                          options:(NSDictionary<NSString *, id> *)options
                             error:(NSError * _Nullable __autoreleasing * _Nullable)error;
 
  // Explicit non-throwing Swift entry point. Never bridge native NSError** as Swift Error.
@@ -29,6 +30,7 @@ NS_ASSUME_NONNULL_BEGIN
                                      magenta:(double)magenta
                                       yellow:(double)yellow
                                 maxDimension:(NSInteger)maxDimension
+                                      options:(NSDictionary<NSString *, id> *)options
                                 errorMessage:(NSMutableString *)errorMessage;
 @end
 
