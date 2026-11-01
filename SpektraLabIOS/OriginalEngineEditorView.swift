@@ -63,17 +63,28 @@ private struct OriginalStock: Identifiable, Hashable {
     }
 }
 
+private enum OriginalMobileTheme {
+    static let rail = Color(red: 45/255, green: 45/255, blue: 44/255)
+    static let canvas = Color(red: 95/255, green: 95/255, blue: 95/255)
+    static let ink = Color(red: 249/255, green: 247/255, blue: 243/255)
+    static let muted = Color(red: 218/255, green: 216/255, blue: 212/255)
+    static let accent = Color(red: 225/255, green: 169/255, blue: 95/255)
+    static let line = Color(red: 181/255, green: 182/255, blue: 182/255).opacity(0.35)
+}
+
 private enum EditorTab: String, CaseIterable {
     case film = "胶片"
     case adjustments = "暗房"
     case texture = "质感"
     case edges = "片边"
+    case post = "后期"
     var icon: String {
         switch self {
         case .film: return "camera.filters"
         case .adjustments: return "slider.horizontal.3"
         case .texture: return "circle.dotted.circle"
         case .edges: return "rectangle.on.rectangle"
+        case .post: return "camera.metering.center.weighted"
         }
     }
 }
@@ -82,6 +93,10 @@ struct OriginalEngineEditorView: View {
     @State private var pickedPhoto: PhotosPickerItem?
     @State private var input: UIImage?
     @State private var developed: UIImage?
+    @State private var developedBase: UIImage?
+    @State private var postGrade = PostDevelopmentGrade()
+    @State private var postRevision = 0
+    @State private var postProcessing = false
     @State private var stocks: [OriginalStock] = []
     @State private var filmStock = "kodak_portra_400"
     @State private var paperStock = "kodak_supra_endura"
@@ -164,9 +179,9 @@ struct OriginalEngineEditorView: View {
                     previewPanel
                         .frame(height: max(205, min(geometry.size.height * 0.42, 370)))
 
-                    Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
+                    OriginalMobileTheme.line.frame(height: 1)
                     tabBar
-                    Rectangle().fill(Color.white.opacity(0.10)).frame(height: 1)
+                    OriginalMobileTheme.line.frame(height: 1)
 
                     ScrollView {
                         VStack(alignment: .leading, spacing: 14) {
@@ -175,6 +190,7 @@ struct OriginalEngineEditorView: View {
                             case .adjustments: adjustmentsPanel
                             case .texture: texturePanel
                             case .edges: edgesPanel
+                            case .post: postPanel
                             }
                             Text(status)
                                 .font(.footnote)
@@ -193,8 +209,8 @@ struct OriginalEngineEditorView: View {
                 }
                 .frame(width: geometry.size.width, height: geometry.size.height)
             }
-            .background(Color(red: 0.055, green: 0.055, blue: 0.065))
-            .foregroundStyle(.white)
+            .background(OriginalMobileTheme.rail)
+            .foregroundStyle(OriginalMobileTheme.ink)
             .navigationTitle("SpektraLab")
             .navigationBarTitleDisplayMode(.inline)
             .preferredColorScheme(.dark)
@@ -256,6 +272,19 @@ struct OriginalEngineEditorView: View {
             .onChange(of: edgeFog) { _ in schedulePreview() }
             .onChange(of: edgeLeaks) { _ in schedulePreview() }
             .onChange(of: edgeFrameNumber) { _ in schedulePreview() }
+            .onChange(of: postGrade.enabled) { _ in refreshPostGrade() }
+            .onChange(of: postGrade.temperature) { _ in refreshPostGrade() }
+            .onChange(of: postGrade.tint) { _ in refreshPostGrade() }
+            .onChange(of: postGrade.exposure) { _ in refreshPostGrade() }
+            .onChange(of: postGrade.contrast) { _ in refreshPostGrade() }
+            .onChange(of: postGrade.brightness) { _ in refreshPostGrade() }
+            .onChange(of: postGrade.saturation) { _ in refreshPostGrade() }
+            .onChange(of: postGrade.highlights) { _ in refreshPostGrade() }
+            .onChange(of: postGrade.shadows) { _ in refreshPostGrade() }
+            .onChange(of: postGrade.blackPoint) { _ in refreshPostGrade() }
+            .onChange(of: postGrade.whitePoint) { _ in refreshPostGrade() }
+            .onChange(of: postGrade.vignette) { _ in refreshPostGrade() }
+            .onChange(of: postGrade.vignetteMidpoint) { _ in refreshPostGrade() }
             .onChange(of: pickedPhoto) { item in
                 Task {
                     guard let data = try? await item?.loadTransferable(type: Data.self),
@@ -265,6 +294,8 @@ struct OriginalEngineEditorView: View {
                     }
                     input = photo
                     developed = nil
+                    developedBase = nil
+                    postRevision += 1
                     showInput = false
                     previewZoom = false
                     status = "照片已导入，正在生成预览…"
@@ -277,7 +308,7 @@ struct OriginalEngineEditorView: View {
     private var previewPanel: some View {
         GeometryReader { area in
             ZStack {
-                Color.black
+                OriginalMobileTheme.canvas
                 if let image = activeImage {
                     Image(uiImage: image)
                         .resizable()
@@ -299,7 +330,7 @@ struct OriginalEngineEditorView: View {
                 }
                 VStack {
                     HStack {
-                        Text("实时预览")
+                        Text("CANVAS · \(processing ? "DEVELOPING" : "PREVIEW")")
                             .font(.caption2.weight(.semibold))
                             .padding(.horizontal, 10).padding(.vertical, 6)
                             .background(.black.opacity(0.55), in: Capsule())
@@ -332,7 +363,7 @@ struct OriginalEngineEditorView: View {
                     Spacer()
                     if processing {
                         HStack(spacing: 8) {
-                            ProgressView().tint(.orange)
+                            ProgressView().tint(OriginalMobileTheme.accent)
                             Text(exporting ? "正在导出…" : "正在更新胶片预览…")
                                 .font(.caption)
                         }
@@ -356,24 +387,25 @@ struct OriginalEngineEditorView: View {
                         Image(systemName: tab.icon).font(.system(size: 17))
                         Text(tab.rawValue).font(.caption.weight(.medium))
                     }
-                    .foregroundStyle(activeTab == tab ? Color.orange : Color.white.opacity(0.64))
+                    .foregroundStyle(activeTab == tab ? OriginalMobileTheme.ink : OriginalMobileTheme.muted.opacity(0.7))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(activeTab == tab ? Color.orange.opacity(0.11) : Color.clear,
+                    .background(activeTab == tab ? OriginalMobileTheme.canvas.opacity(0.42) : Color.clear,
                                 in: RoundedRectangle(cornerRadius: 10))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 6)
+        .padding(.horizontal, 10).padding(.vertical, 5)
+        .background(OriginalMobileTheme.rail)
     }
 
     private var filmPanel: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("胶片模拟").font(.headline)
-                    Text("选择胶片与相纸，照片会自动更新")
+                    Text("FILM & PRINT").font(.headline)
+                    Text("原版胶片与相纸配置 · 自动显影")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -395,11 +427,11 @@ struct OriginalEngineEditorView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .tint(.orange)
+                .tint(OriginalMobileTheme.accent)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(14)
-            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+            .background(OriginalMobileTheme.canvas.opacity(0.38), in: RoundedRectangle(cornerRadius: 7))
 
             VStack(alignment: .leading, spacing: 10) {
                 Text("相纸类型").font(.subheadline.weight(.semibold))
@@ -413,11 +445,11 @@ struct OriginalEngineEditorView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .tint(.orange)
+                .tint(OriginalMobileTheme.accent)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(14)
-            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+            .background(OriginalMobileTheme.canvas.opacity(0.38), in: RoundedRectangle(cornerRadius: 7))
         }
     }
 
@@ -433,7 +465,7 @@ struct OriginalEngineEditorView: View {
                     extendedRange = false; scanFilm = false
                     schedulePreview(immediate: true)
                 }
-                .font(.caption.weight(.semibold)).tint(.orange)
+                .font(.caption.weight(.semibold)).tint(OriginalMobileTheme.accent)
             }
             Text("参考原版的负片曝光、放大机与扫描参数")
                 .font(.caption).foregroundStyle(.secondary)
@@ -456,8 +488,8 @@ struct OriginalEngineEditorView: View {
                                value: $lensBlur, range: 0...40)
                 darkroomSlider("扫描柔化", subtitle: "扫描仪镜头模糊",
                                value: $scannerBlur, range: 0...10)
-                Toggle("扩展动态范围", isOn: $extendedRange).tint(.orange)
-                Toggle("直接扫描底片", isOn: $scanFilm).tint(.orange)
+                Toggle("扩展动态范围", isOn: $extendedRange).tint(OriginalMobileTheme.accent)
+                Toggle("直接扫描底片", isOn: $scanFilm).tint(OriginalMobileTheme.accent)
             }
             .padding(14)
             .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
@@ -477,7 +509,7 @@ struct OriginalEngineEditorView: View {
                     couplersAmount = 1; glareAmount = 1
                     schedulePreview(immediate: true)
                 }
-                .font(.caption.weight(.semibold)).tint(.orange)
+                .font(.caption.weight(.semibold)).tint(OriginalMobileTheme.accent)
             }
             Text("颗粒与光晕由原版光谱引擎生成；请放大照片观察细节")
                 .font(.caption).foregroundStyle(.secondary)
@@ -485,7 +517,7 @@ struct OriginalEngineEditorView: View {
                 Text("颗粒").font(.subheadline.weight(.semibold))
                 darkroomSlider("胶片颗粒强度", subtitle: "0 为关闭 · 1 为原版胶片默认",
                                value: $grainAmount, range: 0...2)
-                Toggle("彩色胶片分层颗粒", isOn: $grainLayered).tint(.orange)
+                Toggle("彩色胶片分层颗粒", isOn: $grainLayered).tint(OriginalMobileTheme.accent)
             }
             .padding(14)
             .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
@@ -499,13 +531,13 @@ struct OriginalEngineEditorView: View {
                                value: $highlightBoost, range: 0...8)
                 darkroomSlider("高光余量", subtitle: "主要影响无防光晕层的电影胶片",
                                value: $highlightHeadroom, range: 0...8)
-                Toggle("移除防光晕层", isOn: $removeAntihalation).tint(.orange)
+                Toggle("移除防光晕层", isOn: $removeAntihalation).tint(OriginalMobileTheme.accent)
             }
             .padding(14)
             .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
             VStack(spacing: 17) {
                 Text("色层与相纸雾化").font(.subheadline.weight(.semibold))
-                Toggle("色层耦合", isOn: $couplersActive).tint(.orange)
+                Toggle("色层耦合", isOn: $couplersActive).tint(OriginalMobileTheme.accent)
                 darkroomSlider("色层耦合强度", subtitle: "影响胶片的颜色分离",
                                value: $couplersAmount, range: 0...1.5)
                 darkroomSlider("相纸雾化", subtitle: "暗房散射光 · 0–30",
@@ -516,25 +548,77 @@ struct OriginalEngineEditorView: View {
         }
     }
 
+    // Original desktop layout: the right-hand Parameters rail separates
+    // Pre-Dev (camera/film) and Post-Dev (the scanned print). On iPhone
+    // these become adjacent editor tabs with the same section order.
+    private var postPanel: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("PARAMETERS · POST-DEV").font(.headline)
+                    Text("白平衡 → 曝光 → 色调 → 暗角")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("重置") { postGrade = PostDevelopmentGrade() }
+                    .font(.caption.weight(.semibold))
+                    .tint(OriginalMobileTheme.accent)
+            }
+            Toggle("启用后期调色", isOn: $postGrade.enabled)
+                .tint(OriginalMobileTheme.accent)
+            railDivider
+            Text("WHITE BALANCE · 白平衡").font(.caption.weight(.semibold))
+                .foregroundStyle(OriginalMobileTheme.muted)
+            darkroomSlider("色温偏移", subtitle: "蓝色 ↔ 琥珀", value: $postGrade.temperature, range: -100...100)
+            darkroomSlider("色调偏移", subtitle: "绿色 ↔ 洋红", value: $postGrade.tint, range: -100...100)
+            railDivider
+            Text("EXPOSURE · 曝光").font(.caption.weight(.semibold))
+                .foregroundStyle(OriginalMobileTheme.muted)
+            darkroomSlider("曝光", subtitle: "输出扫描曝光 · EV", value: $postGrade.exposure, range: -3...3)
+            darkroomSlider("对比度", subtitle: "输出扫描对比度", value: $postGrade.contrast, range: -50...50)
+            darkroomSlider("亮度", subtitle: "输出扫描亮度", value: $postGrade.brightness, range: -50...50)
+            darkroomSlider("饱和度", subtitle: "输出扫描饱和度", value: $postGrade.saturation, range: -100...100)
+            railDivider
+            Text("TONE · 明暗层次").font(.caption.weight(.semibold))
+                .foregroundStyle(OriginalMobileTheme.muted)
+            darkroomSlider("高光", subtitle: "高光细节", value: $postGrade.highlights, range: -100...100)
+            darkroomSlider("阴影", subtitle: "阴影细节", value: $postGrade.shadows, range: -100...100)
+            darkroomSlider("黑场", subtitle: "黑点位置", value: $postGrade.blackPoint, range: 0...50)
+            darkroomSlider("白场", subtitle: "白点位置", value: $postGrade.whitePoint, range: 0...50)
+            railDivider
+            Text("VIGNETTE · 暗角").font(.caption.weight(.semibold))
+                .foregroundStyle(OriginalMobileTheme.muted)
+            darkroomSlider("暗角强度", subtitle: "负值暗角 · 正值提亮", value: $postGrade.vignette, range: -100...100)
+            darkroomSlider("暗角中点", subtitle: "影响范围", value: $postGrade.vignetteMidpoint, range: 0...100)
+            Text("iOS 后期处理已连接预览与导出。当前采用 Core Image 实现，原版 Metal 调色着色器仍待逐项对齐。")
+                .font(.caption2).foregroundStyle(.secondary)
+        }
+        .disabled(!postGrade.enabled)
+    }
+
+    private var railDivider: some View {
+        OriginalMobileTheme.line.frame(height: 1).padding(.vertical, 3)
+    }
+
     private var edgesPanel: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Film Edge · 原版胶片片边").font(.headline)
             Text("沿用原版的片门、齿孔、底片边码和光漏参数。启用时按胶片画幅比例居中裁剪照片。")
                 .font(.caption).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 15) {
-                Toggle("开启原版 Film Edge", isOn: $filmEdge).tint(.orange)
+                Toggle("开启原版 Film Edge", isOn: $filmEdge).tint(OriginalMobileTheme.accent)
                 if filmEdge {
                     Picker("胶片格式", selection: $edgeFormat) {
                         ForEach(edgeOptions, id: \.0) { option in
                             Text(option.1).tag(option.0)
                         }
                     }
-                    .tint(.orange)
+                    .tint(OriginalMobileTheme.accent)
                     Picker("呈现方式", selection: $edgeView) {
                         Text("整条胶片 · Strip").tag("strip")
                         Text("归档片门 · Filed").tag("filed")
                     }
-                    .tint(.orange)
+                    .tint(OriginalMobileTheme.accent)
                     Picker("片门形状", selection: $edgeGate) {
                         Text("自动").tag("auto")
                         Text("直角").tag("square")
@@ -543,12 +627,12 @@ struct OriginalEngineEditorView: View {
                         Text("肩形").tag("shouldered")
                         Text("切角").tag("kicked")
                     }
-                    .tint(.orange)
+                    .tint(OriginalMobileTheme.accent)
                     Picker("齿孔颜色", selection: $edgeHoles) {
                         Text("亮色").tag("white")
                         Text("暗色").tag("black")
                     }
-                    .tint(.orange)
+                    .tint(OriginalMobileTheme.accent)
                     darkroomSlider("底片灰雾", subtitle: "原版片边灰雾强度",
                                    value: $edgeFog, range: 0...4)
                     darkroomSlider("边缘漏光", subtitle: "原版漏光强度",
@@ -558,15 +642,15 @@ struct OriginalEngineEditorView: View {
                             Text("画格编号")
                             Spacer()
                             Text(edgeFrameNumber == 0 ? "自动" : String(edgeFrameNumber))
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(OriginalMobileTheme.accent)
                         }
                         Slider(value: Binding(get: { Double(edgeFrameNumber) },
                                               set: { edgeFrameNumber = Int($0.rounded()) }),
                                in: 0...99, step: 1)
-                            .tint(.orange)
+                            .tint(OriginalMobileTheme.accent)
                     }
                     Text("原版片边仍需实机稳定性验证。如开启后闪退，请记录机型和崩溃日志。")
-                        .font(.caption).foregroundStyle(.orange)
+                        .font(.caption).foregroundStyle(OriginalMobileTheme.accent)
                 }
             }
             .padding(14)
@@ -595,11 +679,12 @@ struct OriginalEngineEditorView: View {
                 .frame(maxWidth: .infinity).frame(height: 42)
             }
             .buttonStyle(.borderedProminent)
-            .tint(.orange)
+            .tint(OriginalMobileTheme.accent)
             .disabled(input == nil || exporting || queuedExport)
         }
         .padding(.horizontal, 16).padding(.vertical, 9)
-        .background(Color(white: 0.105))
+        .background(OriginalMobileTheme.rail)
+        .overlay(alignment: .top) { OriginalMobileTheme.line.frame(height: 1) }
     }
 
     private func darkroomSlider(_ name: String, subtitle: String,
@@ -610,13 +695,30 @@ struct OriginalEngineEditorView: View {
                 Spacer()
                 Text(String(format: "%.2f", value.wrappedValue))
                     .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(OriginalMobileTheme.accent)
             }
             Text(subtitle).font(.caption2).foregroundStyle(.secondary)
             Slider(value: value, in: range, onEditingChanged: { editing in
                 if !editing { schedulePreview(immediate: true) }
             })
-            .tint(.orange)
+            .tint(OriginalMobileTheme.accent)
+        }
+    }
+
+    private func refreshPostGrade() {
+        postRevision += 1
+        let revision = postRevision
+        guard let base = developedBase else { return }
+        let grade = postGrade
+        postProcessing = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let image = OriginalPostProcessor.apply(grade, to: base)
+            DispatchQueue.main.async {
+                guard revision == postRevision else { return }
+                postProcessing = false
+                if let image { developed = image }
+                else { status = "失败：后期调色处理失败" }
+            }
         }
     }
 
@@ -680,6 +782,7 @@ struct OriginalEngineEditorView: View {
         let halation = halationAmount
         let magenta = magentaFilter
         let yellow = yellowFilter
+        let exportGrade = postGrade
         let grainFactor: Double
         switch film {
         case "kodak_tri_x_400": grainFactor = 1.70
@@ -742,7 +845,11 @@ struct OriginalEngineEditorView: View {
                 magenta: magenta, yellow: yellow,
                 maxDimension: maxDimension, options: options,
                 errorMessage: nativeMessage)
-            let result = renderedImage
+            // Export and preview must both use the same post-development
+            // stage. Preview applies the latest grade after native completion.
+            let result = saveAfter ? renderedImage.flatMap {
+                OriginalPostProcessor.apply(exportGrade, to: $0)
+            } : renderedImage
             let renderFailure = nativeMessage.length > 0 ? (nativeMessage as String) : nil
             DispatchQueue.main.async {
                 processing = false
@@ -757,7 +864,10 @@ struct OriginalEngineEditorView: View {
                     return
                 }
                 if let result {
-                    developed = result
+                    if !saveAfter {
+                        developedBase = result
+                        refreshPostGrade()
+                    }
                     renderedExposureEV = exposure
                     renderedMagenta = magenta
                     renderedYellow = yellow
