@@ -12,7 +12,7 @@ struct SpektraLabIOSApp: App {
     }
     var body: some Scene {
         WindowGroup {
-            EditorView()
+            OriginalEngineEditorView()
         }
     }
 }
