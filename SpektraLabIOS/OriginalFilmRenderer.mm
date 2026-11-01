@@ -30,6 +30,11 @@ static NSString *SPKEngineError(spk_engine *engine) {
               printStock:(NSString *)printStock
                enableEdge:(BOOL)enableEdge
                        edgeFormat:(NSString *)edgeFormat
+                         exposureEV:(double)exposureEV
+                        grainAmount:(double)grainAmount
+                     halationAmount:(double)halationAmount
+                           magenta:(double)magenta
+                            yellow:(double)yellow
             maxDimension:(NSInteger)maxDimension
                    error:(NSError * _Nullable __autoreleasing *)error {
     @autoreleasepool {
@@ -113,7 +118,14 @@ static NSString *SPKEngineError(spk_engine *engine) {
             @"overscan_active": @(enableEdge),
             @"overscan_format": edgeFormat.length ? edgeFormat : @"135",
             @"overscan_mode": @"strip",
-            @"overscan_holes": @"white"
+            @"overscan_holes": @"white",
+            @"exposure_compensation_ev": @(exposureEV),
+            @"grain_active": @(grainAmount > 0),
+            @"grain_amount": @(grainAmount),
+            @"halation_active": @(halationAmount > 0),
+            @"halation_amount": @(halationAmount),
+            @"m_filter_shift": @(magenta),
+            @"y_filter_shift": @(yellow)
         };
         NSData *jsonData = [NSJSONSerialization dataWithJSONObject:parameters options:0 error:error];
         if (!jsonData) {
