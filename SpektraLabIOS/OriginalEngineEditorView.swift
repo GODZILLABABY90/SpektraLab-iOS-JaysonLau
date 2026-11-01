@@ -659,7 +659,7 @@ struct OriginalEngineEditorView: View {
             VStack(spacing: 17) {
                 Label("颗粒", systemImage: "circle.hexagongrid.fill").font(.subheadline.weight(.semibold))
                 darkroomSlider("胶片颗粒强度", subtitle: "0 为关闭 · 1 为原版胶片默认",
-                               value: $grainAmount, range: 0...2)
+                               value: $grainAmount, range: 0...2, defaultValue: 1)
                 Toggle("彩色胶片分层颗粒", isOn: $grainLayered).tint(OriginalMobileTheme.accent)
             }
             .padding(14)
@@ -667,13 +667,13 @@ struct OriginalEngineEditorView: View {
             VStack(spacing: 17) {
                 Text("光晕与散射").font(.subheadline.weight(.semibold))
                 darkroomSlider("胶片光晕", subtitle: "背反射光晕强度 · 0–4",
-                               value: $halationAmount, range: 0...4)
+                               value: $halationAmount, range: 0...4, defaultValue: 1)
                 darkroomSlider("乳剂散射", subtitle: "乳剂内部光散射 · 0–1",
-                               value: $halationScatter, range: 0...1)
+                               value: $halationScatter, range: 0...1, defaultValue: 1)
                 darkroomSlider("高光光晕增强", subtitle: "为被裁切的亮部恢复光能 · EV",
                                value: $highlightBoost, range: 0...8)
                 darkroomSlider("高光余量", subtitle: "主要影响无防光晕层的电影胶片",
-                               value: $highlightHeadroom, range: 0...8)
+                               value: $highlightHeadroom, range: 0...8, defaultValue: 4)
                 Toggle("移除防光晕层", isOn: $removeAntihalation).tint(OriginalMobileTheme.accent)
             }
             .padding(14)
@@ -682,9 +682,9 @@ struct OriginalEngineEditorView: View {
                 Text("色层与相纸雾化").font(.subheadline.weight(.semibold))
                 Toggle("色层耦合", isOn: $couplersActive).tint(OriginalMobileTheme.accent)
                 darkroomSlider("色层耦合强度", subtitle: "影响胶片的颜色分离",
-                               value: $couplersAmount, range: 0...1.5)
+                               value: $couplersAmount, range: 0...1.5, defaultValue: 1)
                 darkroomSlider("相纸雾化", subtitle: "暗房散射光 · 0–30",
-                               value: $glareAmount, range: 0...30)
+                               value: $glareAmount, range: 0...30, defaultValue: 1)
             }
             .padding(14)
             .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
@@ -738,7 +738,7 @@ struct OriginalEngineEditorView: View {
             Text("VIGNETTE · 暗角").font(.caption.weight(.semibold))
                 .foregroundStyle(OriginalMobileTheme.muted)
             darkroomSlider("暗角强度", subtitle: "负值暗角 · 正值提亮", value: $postGrade.vignette, range: -100...100)
-            darkroomSlider("暗角中点", subtitle: "影响范围", value: $postGrade.vignetteMidpoint, range: 0...100)
+            darkroomSlider("暗角中点", subtitle: "影响范围", value: $postGrade.vignetteMidpoint, range: 0...100, defaultValue: 50)
             Text("iOS 后期处理已连接预览与导出。当前采用 Core Image 实现，原版 Metal 调色着色器仍待逐项对齐。")
                 .font(.caption2).foregroundStyle(.secondary)
         }
@@ -782,7 +782,7 @@ struct OriginalEngineEditorView: View {
                     }
                     .tint(OriginalMobileTheme.accent)
                     darkroomSlider("底片灰雾", subtitle: "原版片边灰雾强度",
-                                   value: $edgeFog, range: 0...4)
+                                   value: $edgeFog, range: 0...4, defaultValue: 1)
                     darkroomSlider("边缘漏光", subtitle: "原版漏光强度",
                                    value: $edgeLeaks, range: 0...4)
                     Button {
@@ -845,7 +845,7 @@ struct OriginalEngineEditorView: View {
     }
 
     private func darkroomSlider(_ name: String, subtitle: String,
-                                value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+                                value: Binding<Double>, range: ClosedRange<Double>, defaultValue: Double = 0) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 9) {
                 Text(name)
@@ -857,7 +857,8 @@ struct OriginalEngineEditorView: View {
                 })
                 .tint(OriginalMobileTheme.accent)
                 Button {
-                    value.wrappedValue = min(max(0, range.lowerBound), range.upperBound)
+                    value.wrappedValue = min(max(defaultValue, range.lowerBound), range.upperBound)
+                    if activeTab != .post { schedulePreview(immediate: true) }
                 } label: {
                     Image(systemName: "arrow.counterclockwise")
                         .font(.system(size: 11))
