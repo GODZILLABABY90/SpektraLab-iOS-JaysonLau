@@ -493,28 +493,51 @@ struct OriginalEngineEditorView: View {
             Text("FILM · 胶片").font(.caption.weight(.semibold))
                 .foregroundStyle(OriginalMobileTheme.muted)
                 .padding(.vertical, 9)
-            Button { showFilmLibrary = true } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "camera.aperture")
-                        .font(.system(size: 20, weight: .light))
-                        .frame(width: 28)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(stocks.first(where: { $0.id == filmStock })?.chineseName ?? filmStock)
-                            .font(.subheadline.weight(.medium))
-                            .lineLimit(2)
-                        Text("点按查看全部原版胶片")
-                            .font(.caption2).foregroundStyle(OriginalMobileTheme.muted)
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 12) {
+                    ForEach(stocks.filter { $0.support == "film" }) { stock in
+                        Button { filmStock = stock.id } label: {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(filmCardColor(stock.id).gradient)
+                                    VStack(spacing: 5) {
+                                        Image(systemName: "camera.aperture")
+                                            .font(.system(size: 25, weight: .medium))
+                                        Text(stock.name.components(separatedBy: " ").prefix(1).joined())
+                                            .font(.system(size: 13, weight: .black, design: .rounded))
+                                            .lineLimit(1)
+                                        Text("FILM  •  35mm")
+                                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                    }
+                                    .foregroundStyle(.white)
+                                    .shadow(color: .black.opacity(0.25), radius: 2, y: 2)
+                                }
+                                .frame(height: 92)
+                                Text(stock.chineseName)
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(OriginalMobileTheme.ink)
+                                    .lineLimit(2)
+                                    .frame(height: 32, alignment: .topLeading)
+                            }
+                            .padding(7)
+                            .frame(width: 132)
+                            .background(filmStock == stock.id ? OriginalMobileTheme.accent.opacity(0.22) : Color.white.opacity(0.07),
+                                        in: RoundedRectangle(cornerRadius: 13))
+                            .overlay(RoundedRectangle(cornerRadius: 13)
+                                .stroke(filmStock == stock.id ? OriginalMobileTheme.accent : .clear, lineWidth: 2))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("选择胶片 " + stock.chineseName)
                     }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
                 }
-                .foregroundStyle(OriginalMobileTheme.ink)
-                .padding(14)
-                .background(OriginalMobileTheme.canvas.opacity(0.55), in: RoundedRectangle(cornerRadius: 7))
+                .padding(.vertical, 6)
             }
-            .buttonStyle(.plain)
-            .padding(.bottom, 15)
+            .padding(.bottom, 12)
+            Text("左右滑动选择胶卷 · 彩色卡片为品牌风格示意，非官方商标")
+                .font(.caption2)
+                .foregroundStyle(OriginalMobileTheme.muted)
+                .padding(.bottom, 10)
 
             railDivider
             Text("PRINT · 相纸").font(.caption.weight(.semibold))
@@ -550,6 +573,16 @@ struct OriginalEngineEditorView: View {
                 .foregroundStyle(OriginalMobileTheme.muted)
                 .padding(.top, 12)
         }
+    }
+
+    private func filmCardColor(_ id: String) -> Color {
+        let key = id.lowercased()
+        if key.contains("kodak") { return Color(red: 0.93, green: 0.51, blue: 0.11) }
+        if key.contains("fuji") { return Color(red: 0.13, green: 0.58, blue: 0.43) }
+        if key.contains("ilford") { return Color(red: 0.32, green: 0.38, blue: 0.56) }
+        if key.contains("cinestill") { return Color(red: 0.81, green: 0.25, blue: 0.30) }
+        if key.contains("agfa") { return Color(red: 0.65, green: 0.25, blue: 0.57) }
+        return Color(red: 0.22, green: 0.49, blue: 0.75)
     }
 
     private var adjustmentsPanel: some View {
