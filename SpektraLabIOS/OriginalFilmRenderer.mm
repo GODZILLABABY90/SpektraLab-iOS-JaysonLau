@@ -158,6 +158,15 @@ static NSString *SPKEngineError(spk_engine *engine) {
         }
 
         const size_t w = result.width, h = result.height;
+        // The native ABI returns a row stride in pixels, not bytes. Validate
+        // it before reading the 16-bit RGBA buffer to avoid out-of-bounds access.
+        if (result.row_stride_px < w || w > SIZE_MAX / 4 ||
+            h > SIZE_MAX / (w * 4) || w > 8192 || h > 8192) {
+            if (error) *error = SPKIosError(@"Original engine returned invalid output dimensions or stride");
+            spk_result_free(&result);
+            CGColorSpaceRelease(srgb);
+            return nil;
+        }
         std::vector<uint8_t> output(w * h * 4);
         for (size_t y = 0; y < h; ++y) {
             const uint16_t *row = result.rgba16 + y * result.row_stride_px * 4;
