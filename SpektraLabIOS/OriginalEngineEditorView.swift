@@ -757,7 +757,7 @@ struct OriginalEngineEditorView: View {
             railDivider
             Label("DETAIL · 细节", systemImage: "camera.macro").font(.caption.weight(.semibold))
                 .foregroundStyle(OriginalMobileTheme.muted)
-            darkroomSlider("清晰度", subtitle: "局部边缘对比度", value: $postGrade.clarity, range: 0...100)
+            darkroomSlider("清晰度", subtitle: "柔化 ↔ 局部边缘对比度", value: $postGrade.clarity, range: -100...100)
             darkroomSlider("锐化", subtitle: "扫描后细节增强", value: $postGrade.sharpness, range: 0...100)
             railDivider
             Text("TONE · 明暗层次").font(.caption.weight(.semibold))
