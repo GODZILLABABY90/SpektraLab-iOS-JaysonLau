@@ -176,6 +176,8 @@ struct OriginalEngineEditorView: View {
         NavigationStack {
             GeometryReader { geometry in
                 VStack(spacing: 0) {
+                    headerBar
+                    OriginalMobileTheme.line.frame(height: 1)
                     // The preview is outside the scrollable editor. It remains
                     // visible while dragging any of the darkroom controls.
                     previewPanel
@@ -213,8 +215,7 @@ struct OriginalEngineEditorView: View {
             }
             .background(OriginalMobileTheme.rail)
             .foregroundStyle(OriginalMobileTheme.ink)
-            .navigationTitle("SpektraLab")
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .preferredColorScheme(.dark)
             .sheet(isPresented: $showFilmLibrary) {
                 OriginalStockLibrary(stocks: stocks.filter { $0.support == "film" },
@@ -313,6 +314,41 @@ struct OriginalEngineEditorView: View {
                 }
             }
         }
+    }
+
+    private var headerBar: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text("SpektraLab")
+                    .font(.system(size: 19, weight: .semibold, design: .rounded))
+                    .tracking(-0.5)
+                Text("SPECTRAL DARKROOM")
+                    .font(.system(size: 8, weight: .medium, design: .monospaced))
+                    .tracking(1.6)
+                    .foregroundStyle(OriginalMobileTheme.muted)
+            }
+            Spacer(minLength: 4)
+            PhotosPicker(selection: $pickedPhoto, matching: .images) {
+                Image(systemName: "square.and.arrow.down.on.square")
+                    .font(.system(size: 17, weight: .regular))
+                    .frame(width: 38, height: 38)
+                    .background(OriginalMobileTheme.canvas.opacity(0.45), in: RoundedRectangle(cornerRadius: 6))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("导入照片")
+            Button { showExportChoices = true } label: {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 17, weight: .regular))
+                    .frame(width: 38, height: 38)
+                    .background(OriginalMobileTheme.canvas.opacity(0.45), in: RoundedRectangle(cornerRadius: 6))
+            }
+            .buttonStyle(.plain)
+            .disabled(input == nil || exporting || queuedExport)
+            .accessibilityLabel("导出照片")
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 52)
+        .background(OriginalMobileTheme.rail)
     }
 
     private var previewPanel: some View {
@@ -694,50 +730,52 @@ struct OriginalEngineEditorView: View {
     }
 
     private var bottomBar: some View {
-        HStack(spacing: 12) {
-            PhotosPicker(selection: $pickedPhoto, matching: .images) {
-                Label("导入", systemImage: "photo.on.rectangle")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity).frame(height: 42)
+        HStack(spacing: 8) {
+            Image(systemName: processing ? "circle.dotted" : "camera.aperture")
+                .font(.system(size: 12))
+                .foregroundStyle(OriginalMobileTheme.accent)
+            Text(status)
+                .font(.system(size: 11))
+                .foregroundStyle(status.hasPrefix("失败") ? Color.red : OriginalMobileTheme.muted)
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            if let input {
+                Text("\(Int(input.size.width)) × \(Int(input.size.height))")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(OriginalMobileTheme.muted)
+                    .lineLimit(1)
             }
-            .buttonStyle(.bordered)
-            .tint(.white)
-            Button {
-                showExportChoices = true
-            } label: {
-                HStack(spacing: 7) {
-                    if exporting { ProgressView().tint(.black) }
-                    else { Image(systemName: "square.and.arrow.down") }
-                    Text(queuedExport ? "等待导出" : "导出 · 像素")
-                }
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity).frame(height: 42)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(OriginalMobileTheme.accent)
-            .disabled(input == nil || exporting || queuedExport)
         }
-        .padding(.horizontal, 16).padding(.vertical, 9)
+        .padding(.horizontal, 14)
+        .frame(height: 32)
         .background(OriginalMobileTheme.rail)
         .overlay(alignment: .top) { OriginalMobileTheme.line.frame(height: 1) }
     }
 
     private func darkroomSlider(_ name: String, subtitle: String,
                                 value: Binding<Double>, range: ClosedRange<Double>) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(name).font(.subheadline.weight(.semibold))
-                Spacer()
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 9) {
+                Text(name)
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(width: 100, alignment: .leading)
+                    .lineLimit(2)
+                Slider(value: value, in: range, onEditingChanged: { editing in
+                    if !editing && activeTab != .post { schedulePreview(immediate: true) }
+                })
+                .tint(OriginalMobileTheme.accent)
                 Text(String(format: "%.2f", value.wrappedValue))
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(OriginalMobileTheme.accent)
+                    .font(.system(size: 11, design: .monospaced))
+                    .monospacedDigit()
+                    .foregroundStyle(OriginalMobileTheme.ink)
+                    .frame(width: 44, alignment: .trailing)
             }
-            Text(subtitle).font(.caption2).foregroundStyle(.secondary)
-            Slider(value: value, in: range, onEditingChanged: { editing in
-                if !editing { schedulePreview(immediate: true) }
-            })
-            .tint(OriginalMobileTheme.accent)
+            Text(subtitle)
+                .font(.system(size: 10))
+                .foregroundStyle(OriginalMobileTheme.muted.opacity(0.7))
+                .padding(.leading, 100)
         }
+        .frame(minHeight: 46)
     }
 
     private func refreshPostGrade() {
