@@ -16,7 +16,7 @@ jobs:
       - name: Compile upstream spectral C++ core for iPhoneOS arm64
         run: bash scripts/probe-upstream-ios.sh
       - name: Compile upstream native pipeline for iPhoneOS arm64
-        if: success()
+        if: always()
         run: bash scripts/probe-upstream-pipeline-ios.sh
       - name: Compile upstream Metal GPU backend for iPhoneOS arm64
         if: always()
@@ -26,6 +26,9 @@ jobs:
         run: bash scripts/probe-upstream-metal-ios.sh
       - name: Compile original Metal shaders for iPhoneOS
         if: success()
+        run: bash scripts/probe-upstream-metal-ios.sh
+      - name: Compile upstream Metal shaders for iPhoneOS
+        if: always()
         run: bash scripts/probe-upstream-metal-ios.sh
       - name: Upload iOS native build outputs and diagnostics
         if: always()
