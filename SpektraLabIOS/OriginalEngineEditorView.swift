@@ -725,7 +725,7 @@ struct OriginalEngineEditorView: View {
                 enableEdge: edges, edgeFormat: format,
                 exposureEV: exposure, grainAmount: grain, halationAmount: halation,
                 magenta: magenta, yellow: yellow,
-                maxDimension: maxDimension, options: options as NSDictionary,
+                maxDimension: maxDimension, options: options,
                 errorMessage: nativeMessage)
             let result = renderedImage
             let renderFailure = nativeMessage.length > 0 ? (nativeMessage as String) : nil
