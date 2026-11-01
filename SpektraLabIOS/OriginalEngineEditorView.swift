@@ -64,14 +64,14 @@ private struct OriginalStock: Identifiable, Hashable {
 }
 
 private enum OriginalMobileTheme {
-    static let rail = Color(red: 45/255, green: 45/255, blue: 44/255)
-    static let canvas = Color(red: 95/255, green: 95/255, blue: 95/255)
-    static let ink = Color(red: 249/255, green: 247/255, blue: 243/255)
-    static let muted = Color(red: 218/255, green: 216/255, blue: 212/255)
-    static let accent = Color(red: 250/255, green: 178/255, blue: 91/255)
+    static let rail = Color(red: 8/255, green: 8/255, blue: 9/255)
+    static let canvas = Color(red: 19/255, green: 19/255, blue: 21/255)
+    static let ink = Color.white
+    static let muted = Color(red: 164/255, green: 164/255, blue: 169/255)
+    static let accent = Color(red: 255/255, green: 143/255, blue: 51/255)
     static let coral = Color(red: 251/255, green: 110/255, blue: 121/255)
     static let cyan = Color(red: 80/255, green: 211/255, blue: 216/255)
-    static let line = Color(red: 181/255, green: 182/255, blue: 182/255).opacity(0.35)
+    static let line = Color.white.opacity(0.16)
 }
 
 private enum EditorTab: String, CaseIterable {
@@ -476,11 +476,11 @@ struct OriginalEngineEditorView: View {
                     .foregroundStyle(activeTab == tab ? OriginalMobileTheme.ink : OriginalMobileTheme.muted.opacity(0.7))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(activeTab == tab ? OriginalMobileTheme.accent.opacity(0.20) : Color.clear,
+                    .background(activeTab == tab ? OriginalMobileTheme.accent.opacity(0.16) : Color.clear,
                                 in: RoundedRectangle(cornerRadius: 10))
                     .overlay(alignment: .bottom) {
                         if activeTab == tab {
-                            Capsule().fill(LinearGradient(colors: [OriginalMobileTheme.coral, OriginalMobileTheme.accent, OriginalMobileTheme.cyan], startPoint: .leading, endPoint: .trailing))
+                            Capsule().fill(OriginalMobileTheme.accent)
                                 .frame(height: 3).padding(.horizontal, 15)
                         }
                     }
@@ -509,7 +509,7 @@ struct OriginalEngineEditorView: View {
             .padding(.bottom, 14)
 
             railDivider
-            Text("FILM · 胶片").font(.caption.weight(.semibold))
+            Text("胶片配置").font(.caption.weight(.semibold))
                 .foregroundStyle(OriginalMobileTheme.muted)
                 .padding(.vertical, 9)
             ScrollView(.horizontal, showsIndicators: false) {
@@ -559,7 +559,7 @@ struct OriginalEngineEditorView: View {
                 .padding(.bottom, 10)
 
             railDivider
-            Text("PRINT · 相纸").font(.caption.weight(.semibold))
+            Text("相纸配置").font(.caption.weight(.semibold))
                 .foregroundStyle(OriginalMobileTheme.muted)
                 .padding(.vertical, 9)
             ScrollView(.horizontal, showsIndicators: false) {
