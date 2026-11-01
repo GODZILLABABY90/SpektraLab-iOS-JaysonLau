@@ -9,6 +9,37 @@ private struct OriginalStock: Identifiable, Hashable {
     let support: String
     let recommendedPaper: String
 
+    var chineseName: String {
+        var result = name
+        let brands: [(String, String)] = [
+            ("Fujifilm", "富士"), ("Fuji", "富士"),
+            ("Kodak", "柯达"), ("Ilford", "伊尔福"),
+            ("Agfa", "爱克发"), ("CineStill", "电影卷 CineStill"),
+            ("Harman", "哈曼"), ("Foma", "福马"),
+            ("Rollei", "禄来"), ("Adox", "爱多士"),
+            ("Konica", "柯尼卡"), ("Ferrania", "费拉尼亚"),
+            ("Lomography", "乐魔"), ("Polaroid", "宝丽来")
+        ]
+        for (english, chinese) in brands {
+            result = result.replacingOccurrences(of: english, with: chinese,
+                options: [.caseInsensitive])
+        }
+        let key = id.lowercased()
+        if support == "paper" {
+            return result + " · 相纸"
+        }
+        if key.contains("portra") || key.contains("400h") {
+            return result + " · 人像负片"
+        }
+        if key.contains("vision") || key.contains("500t") || key.contains("250d") {
+            return result + " · 电影负片"
+        }
+        if key.contains("hp5") || key.contains("tri_x") || key.contains("delta") || key.contains("tmax") {
+            return result + " · 黑白胶片"
+        }
+        return result + " · 胶片"
+    }
+
     static func load() -> [OriginalStock] {
         guard let folder = Bundle.main.url(forResource: "OriginalEngineResources", withExtension: nil)?
             .appendingPathComponent("profiles", isDirectory: true),
@@ -37,7 +68,7 @@ struct OriginalEngineEditorView: View {
     @State private var developed: UIImage?
     @State private var stocks: [OriginalStock] = []
     @State private var filmStock = "kodak_portra_400"
-    @State private var paperStock = "kodak_portra_endura"
+    @State private var paperStock = "kodak_supra_endura"
     @State private var filmEdge = false
     @State private var edgeFormat = "135"
     @State private var exposureEV = 0.0
@@ -102,23 +133,23 @@ struct OriginalEngineEditorView: View {
                     }
                     .buttonStyle(.borderedProminent)
 
-                    Text("ORIGINAL FILM & PRINT")
+                    Text("原版胶片与相纸")
                         .font(.caption.weight(.semibold)).tracking(2)
                         .foregroundStyle(.orange)
 
                     VStack(alignment: .leading, spacing: 15) {
                         Picker("胶片", selection: $filmStock) {
                             if stocks.filter({ $0.support == "film" }).isEmpty {
-                                Text("Kodak Portra 400").tag("kodak_portra_400")
+                                Text("柯达 Portra 400 · 人像负片").tag("kodak_portra_400")
                             } else {
                                 ForEach(stocks.filter { $0.support == "film" }) { stock in
-                                    Text(stock.name).tag(stock.id)
+                                    Text(stock.chineseName).tag(stock.id)
                                 }
                             }
                         }
                         Picker("相纸", selection: $paperStock) {
                             if stocks.filter({ $0.support == "paper" }).isEmpty {
-                                Text("Kodak Portra Endura").tag("kodak_portra_endura")
+                                Text("柯达 Supra Endura · 相纸").tag("kodak_supra_endura")
                             } else {
                                 ForEach(stocks.filter { $0.support == "paper" }) { stock in
                                     Text(stock.name).tag(stock.id)
@@ -138,7 +169,7 @@ struct OriginalEngineEditorView: View {
                     .padding(14)
                     .background(Color(white: 0.14), in: RoundedRectangle(cornerRadius: 12))
 
-                    Text("DARKROOM ADJUSTMENTS")
+                    Text("暗房精细调整")
                         .font(.caption.weight(.semibold)).tracking(2)
                         .foregroundStyle(.orange)
                     VStack(alignment: .leading, spacing: 10) {
@@ -152,7 +183,7 @@ struct OriginalEngineEditorView: View {
                     .background(Color(white: 0.14), in: RoundedRectangle(cornerRadius: 12))
 
                     Button {
-                        develop(maxDimension: 1800, saveAfter: false)
+                        develop(maxDimension: 1200, saveAfter: false)
                     } label: {
                         HStack {
                             if processing { ProgressView().tint(.black) }
@@ -167,9 +198,9 @@ struct OriginalEngineEditorView: View {
                     .disabled(input == nil || processing)
 
                     Button {
-                        develop(maxDimension: 2048, saveAfter: true)
+                        develop(maxDimension: 1600, saveAfter: true)
                     } label: {
-                        Label("安全导出到相册（最长边 2048px）",
+                        Label("安全导出到相册（最长边 1600px）",
                               systemImage: "square.and.arrow.down")
                             .frame(maxWidth: .infinity)
                     }
@@ -179,7 +210,7 @@ struct OriginalEngineEditorView: View {
                     Text(status)
                         .font(.footnote)
                         .foregroundStyle(status.hasPrefix("失败") ? .red : .secondary)
-                    Text("原版 SpektraLab C++ / Metal 引擎 · 81 波长光谱模拟 · GPL-3.0-or-later")
+                    Text("SpektraLab 原版 C++ / Metal 光谱引擎 · 81 波长模拟 · GPL-3.0-or-later")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -245,15 +276,17 @@ struct OriginalEngineEditorView: View {
     }
 
     private func schedulePreview() {
-        developed = nil
+        // Retain the last developed frame until the replacement finishes.
+        // Otherwise every slider edit appears to reset the image to the original.
+        status = "参数已更新，正在刷新预览…"
         previewRevision += 1
         let revision = previewRevision
         pendingPreview?.cancel()
         guard input != nil else { return }
         pendingPreview = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 500_000_000)
+            try? await Task.sleep(nanoseconds: 250_000_000)
             guard !Task.isCancelled, revision == previewRevision else { return }
-            if !processing { develop(maxDimension: 1000, saveAfter: false) }
+            if !processing { develop(maxDimension: 800, saveAfter: false) }
         }
     }
 
