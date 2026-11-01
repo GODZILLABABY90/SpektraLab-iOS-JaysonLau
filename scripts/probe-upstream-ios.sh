@@ -6,9 +6,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 UPSTREAM_DIR="$ROOT/build/upstream-SpektraLab"
 mkdir -p "$ROOT/build"
 if [ ! -d "$UPSTREAM_DIR/.git" ]; then
-  git clone --depth 1 https://github.com/JamesQiu2005/SpektraLab.git "$UPSTREAM_DIR"
+  git clone --filter=blob:none --no-checkout https://github.com/JamesQiu2005/SpektraLab.git "$UPSTREAM_DIR"
 fi
-git -C "$UPSTREAM_DIR" rev-parse HEAD | tee "$ROOT/build/upstream-revision.txt"
+git -C "$UPSTREAM_DIR" checkout --detach 267ee24380091e5bee87658d00f6c33d77321194
+ git -C "$UPSTREAM_DIR" rev-parse HEAD | tee "$ROOT/build/upstream-revision.txt"
 SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
 CXX="$(xcrun --sdk iphoneos --find clang++)"
 CORE="$UPSTREAM_DIR/engine/src/core"
@@ -35,4 +36,9 @@ printf 'Passed: %s; failed: %s\n' "$passes" "$failures" | tee -a "$ROOT/build/up
 if [ "$failures" -eq 0 ]; then
   xcrun --sdk iphoneos ar rcs "$ROOT/build/upstream-probe/libspektralab-core-ios.a" "$ROOT"/build/upstream-probe/*.o
   echo "Original C++ core static library produced" | tee -a "$ROOT/build/upstream-probe/results.txt"
+  mkdir -p "$ROOT/build/upstream-probe/license-notices"
+  cp "$UPSTREAM_DIR/README.md" "$ROOT/build/upstream-probe/license-notices/UPSTREAM-README.md"
 fi
+
+# Mark the probe unsuccessful when any upstream source is incompatible.
+if [ "$failures" -ne 0 ]; then exit 1; fi
