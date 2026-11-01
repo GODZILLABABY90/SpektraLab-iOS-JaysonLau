@@ -780,23 +780,66 @@ struct OriginalEngineEditorView: View {
         OriginalMobileTheme.line.frame(height: 1).padding(.vertical, 3)
     }
 
+    private func edgeStyleCard(title: String, icon: String, selected: Bool,
+                               action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 9) {
+                ZStack(alignment: .bottomTrailing) {
+                    RoundedRectangle(cornerRadius: 11)
+                        .fill(Color.white.opacity(0.09))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 11)
+                                .stroke(selected ? OriginalMobileTheme.accent : Color.white.opacity(0.3),
+                                        lineWidth: selected ? 2 : 1)
+                        }
+                    Image(systemName: icon)
+                        .font(.system(size: 27, weight: .medium))
+                        .foregroundStyle(selected ? OriginalMobileTheme.accent : .white)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    if selected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundStyle(OriginalMobileTheme.accent)
+                            .padding(5)
+                    }
+                }
+                .frame(height: 78)
+                Text(title)
+                    .font(.caption.weight(selected ? .semibold : .regular))
+                    .foregroundStyle(selected ? .white : OriginalMobileTheme.muted)
+                    .lineLimit(1)
+            }
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .accessibilityLabel("选择片框 " + title)
+    }
+
     private var edgesPanel: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Label("Film Edge · 原版胶片片边", systemImage: "film.stack").font(.headline)
-            Text("沿用原版的片门、齿孔、底片边码和光漏参数。启用时按胶片画幅比例居中裁剪照片。")
+            Label("边框配置", systemImage: "film.stack").font(.headline)
+            Text("选择片框样式，再微调画幅、齿孔与漏光。")
                 .font(.caption).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 15) {
-                Toggle("开启原版 Film Edge", isOn: $filmEdge).tint(OriginalMobileTheme.accent)
+                Text("片框样式").font(.subheadline.weight(.semibold))
+                HStack(spacing: 12) {
+                    edgeStyleCard(title: "无边框", icon: "xmark", selected: !filmEdge) {
+                        filmEdge = false
+                    }
+                    edgeStyleCard(title: "胶片条", icon: "film", selected: filmEdge && edgeView == "strip") {
+                        edgeView = "strip"
+                        filmEdge = true
+                    }
+                    edgeStyleCard(title: "归档片门", icon: "rectangle.inset.filled", selected: filmEdge && edgeView == "filed") {
+                        edgeView = "filed"
+                        filmEdge = true
+                    }
+                }
                 if filmEdge {
                     Picker("胶片格式", selection: $edgeFormat) {
                         ForEach(edgeOptions, id: \.0) { option in
                             Text(option.1).tag(option.0)
                         }
-                    }
-                    .tint(OriginalMobileTheme.accent)
-                    Picker("呈现方式", selection: $edgeView) {
-                        Text("整条胶片 · Strip").tag("strip")
-                        Text("归档片门 · Filed").tag("filed")
                     }
                     .tint(OriginalMobileTheme.accent)
                     Picker("片门形状", selection: $edgeGate) {
