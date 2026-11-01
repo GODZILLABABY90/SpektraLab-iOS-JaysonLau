@@ -275,7 +275,7 @@ struct OriginalEngineEditorView: View {
                 PHAssetChangeRequest.creationRequestForAsset(from: image)
             }, completionHandler: { saved, error in
                 DispatchQueue.main.async {
-                    status = saved ? "照片已成功保存到相册" : "失败：保存到相册失败（\\(error?.localizedDescription ?? "未知错误")）"
+                    status = saved ? "照片已成功保存到相册" : "失败：保存到相册失败（\(error?.localizedDescription ?? "未知错误")）"
                 }
             })
         }
