@@ -23,4 +23,5 @@ jobs:
           path: |
             build/upstream-probe/
             build/upstream-revision.txt
+            build/upstream-probe/libspektralab-core-ios.a
           if-no-files-found: warn
