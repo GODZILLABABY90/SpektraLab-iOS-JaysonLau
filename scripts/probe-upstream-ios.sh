@@ -39,6 +39,8 @@ if [ "$failures" -eq 0 ]; then
     "$ROOT/native/UpstreamBridge.cpp" -o "$ROOT/build/upstream-probe/UpstreamBridge.o"
   xcrun --sdk iphoneos ar rcs "$ROOT/build/upstream-probe/libspektralab-core-ios.a" "$ROOT"/build/upstream-probe/*.o
   echo "Original C++ core static library produced" | tee -a "$ROOT/build/upstream-probe/results.txt"
+  xcrun --sdk iphoneos nm "$ROOT/build/upstream-probe/libspektralab-core-ios.a" | grep -q spektralab_ios_blackbody_radiance
+  shasum -a 256 "$ROOT/build/upstream-probe/libspektralab-core-ios.a" > "$ROOT/build/upstream-probe/library.sha256"
   mkdir -p "$ROOT/build/upstream-probe/license-notices"
   cp "$UPSTREAM_DIR/README.md" "$ROOT/build/upstream-probe/license-notices/UPSTREAM-README.md"
 fi
