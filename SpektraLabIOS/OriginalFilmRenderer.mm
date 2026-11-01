@@ -125,8 +125,9 @@ static NSString *SPKEngineError(spk_engine *engine) {
             if (error) *error = SPKIosError(@"Could not allocate source pixels");
             return nil;
         }
-        CGContextTranslateCTM(bitmap, 0, height);
-        CGContextScaleCTM(bitmap, 1, -1);
+        // UIKit already normalized EXIF orientation in normalized.CGImage.
+        // The bitmap context and its CGImage both use CoreGraphics coordinates;
+        // flipping the CTM here inverted the image supplied to the film engine.
         CGContextDrawImage(bitmap, CGRectMake(0, 0, width, height), inputCG);
         CGContextRelease(bitmap);
 
@@ -148,14 +149,19 @@ static NSString *SPKEngineError(spk_engine *engine) {
 
         NSDictionary *parameters = @{
             @"film_stock": filmStock.length ? filmStock : @"kodak_portra_400",
-            @"print_stock": printStock.length ? printStock : @"kodak_portra_endura",
+            @"print_stock": printStock.length ? printStock : @"kodak_supra_endura",
+            @"auto_exposure": @YES,
+            @"auto_exposure_method": @"balanced",
+            @"film_format_mm": @36,
+            @"filter_shift_scale": @40,
+            @"glare_active": @YES,
+            @"scan_film": @NO,
             @"input_color_space": @"sRGB",
             @"input_cctf_decoding": @YES,
             @"output_color_space": @"sRGB",
             @"output_cctf_encoding": @YES,
             @"preview_long_edge": @(maxDimension),
-            @"product_defaults": @YES,
-            @"overscan_active": @(enableEdge),
+                        @"overscan_active": @(enableEdge),
             @"overscan_format": edgeFormat.length ? edgeFormat : @"135",
             @"overscan_mode": @"strip",
             @"overscan_holes": @"white",
