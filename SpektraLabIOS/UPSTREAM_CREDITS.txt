@@ -1,0 +1,31 @@
+Original engine attribution and licensing
+
+SpektraLab macOS engine and application:
+https://github.com/JamesQiu2005/SpektraLab
+Copyright respective upstream contributors.
+License: GNU General Public License, version 3 or later (GPL-3.0-or-later).
+
+Original film and paper spectral profiles and print LUTs:
+Based on spektrafilm by Andrea Volpato:
+https://github.com/andreavolpato/spektrafilm
+License: Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0).
+Hanze Qiu contributed additional measured monochrome profiles.
+
+metal-cpp:
+Copyright Apple Inc.
+License: Apache License 2.0.
+
+This iOS port is not affiliated with or endorsed by the original authors.
+The upstream SpektraLab source revision is recorded in the matching
+GitHub Actions artifact as upstream-revision.txt. The independently
+implemented iOS application is developed separately; its linked original
+engine components remain governed by their original licenses.
+
+The iOS native C++ core integration is experimental. Until the full
+rendering pipeline is integrated, the photo preview/export is still the
+independent Core Image V0.2 prototype.
+
+Original upstream:
+https://github.com/JamesQiu2005/SpektraLab
+iOS port:
+https://github.com/GODZILLABABY90/SpektraLab-iOS-JaysonLau
