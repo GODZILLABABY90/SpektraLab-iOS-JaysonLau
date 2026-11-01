@@ -2,6 +2,7 @@ import SwiftUI
 import PhotosUI
 import Photos
 import Foundation
+import UIKit
 
 private struct OriginalStock: Identifiable, Hashable {
     let id: String
@@ -93,6 +94,9 @@ struct OriginalEngineEditorView: View {
     @State private var exporting = false
     @State private var queuedExport = false
     @State private var activeTab: EditorTab = .film
+    @State private var renderedExposureEV = 0.0
+    @State private var renderedMagenta = 0.0
+    @State private var renderedYellow = 0.0
     @State private var previewRevision = 0
     @State private var pendingPreview: Task<Void, Never>?
     @State private var showInput = false
@@ -108,6 +112,21 @@ struct OriginalEngineEditorView: View {
     private var activeImage: UIImage? {
         if showInput { return input }
         return developed ?? input
+    }
+
+    // Lightweight display-only feedback while the physical spectral render
+    // catches up. It is zeroed after the new original-engine frame arrives.
+    private var liveBrightness: Double {
+        showInput ? 0 : (exposureEV - renderedExposureEV) * 0.14
+    }
+    private var liveTint: Color {
+        guard !showInput else { return .white }
+        let m = magentaFilter - renderedMagenta
+        let y = yellowFilter - renderedYellow
+        func channel(_ x: Double) -> Double { min(1, max(0.60, x)) }
+        return Color(red: channel(1 + m * 0.13 + y * 0.08),
+                     green: channel(1 - m * 0.16 + y * 0.08),
+                     blue: channel(1 + m * 0.10 - y * 0.18))
     }
 
     var body: some View {
@@ -203,6 +222,8 @@ struct OriginalEngineEditorView: View {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFit()
+                        .brightness(liveBrightness)
+                        .colorMultiply(liveTint)
                         .frame(width: area.size.width, height: area.size.height)
                 } else {
                     VStack(spacing: 12) {
@@ -332,7 +353,7 @@ struct OriginalEngineEditorView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("精细调整").font(.headline)
-                    Text("松开滑块后自动精确显影，预览始终固定在上方")
+                    Text("曝光与色彩即时反馈，松开后自动精确显影")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -528,6 +549,9 @@ struct OriginalEngineEditorView: View {
                 }
                 if let result {
                     developed = result
+                    renderedExposureEV = exposure
+                    renderedMagenta = magenta
+                    renderedYellow = yellow
                     showInput = false
                     if saveAfter {
                         status = "渲染完成，正在保存到相册…"
