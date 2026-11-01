@@ -17,6 +17,8 @@ jobs:
         run: xcodebuild -version
       - name: Install XcodeGen
         run: brew install xcodegen
+      - name: Compile original GPL-licensed C++ spectral core for iPhoneOS
+        run: bash scripts/probe-upstream-ios.sh
       - name: Generate project
         run: xcodegen generate
       - name: Build iOS app (unsigned)
@@ -37,6 +39,16 @@ jobs:
           name: SpektraLabIOS-unsigned-IPA
           path: SpektraLabIOS-unsigned.ipa
           if-no-files-found: error
+      - name: Upload upstream engine diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-engine-diagnostics
+          path: |
+            build/upstream-probe/results.txt
+            build/upstream-probe/*.log
+            build/upstream-revision.txt
+          if-no-files-found: warn
       - name: Upload build log on failure
         if: failure()
         uses: actions/upload-artifact@v4
