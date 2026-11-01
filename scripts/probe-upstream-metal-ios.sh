@@ -23,6 +23,7 @@ for shader in "${shaders[@]}"; do
   air="$OUT/$name.air"
   if xcrun --sdk iphoneos metal -std=ios-metal2.4 -fmetal-math-mode=safe \
     -fmetal-math-fp32-functions=precise -mios-version-min=17.0 \
+    -I"$SOURCE" -I"$ROOT/build/upstream-SpektraLab/engine/include" \
     -c "$shader" -o "$air" >"$OUT/$name.log" 2>&1; then
     airs+=("$air")
     echo "PASS $name" | tee -a "$OUT/results.txt"
