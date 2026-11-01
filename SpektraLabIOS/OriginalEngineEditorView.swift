@@ -554,27 +554,41 @@ struct OriginalEngineEditorView: View {
             Text("PRINT · 相纸").font(.caption.weight(.semibold))
                 .foregroundStyle(OriginalMobileTheme.muted)
                 .padding(.vertical, 9)
-            Button { showPaperLibrary = true } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "square.stack.3d.up")
-                        .font(.system(size: 20, weight: .light))
-                        .frame(width: 28)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(stocks.first(where: { $0.id == paperStock })?.chineseName ?? paperStock)
-                            .font(.subheadline.weight(.medium))
-                            .lineLimit(2)
-                        Text("点按查看全部原版相纸")
-                            .font(.caption2).foregroundStyle(OriginalMobileTheme.muted)
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 10) {
+                    ForEach(stocks.filter { $0.support == "paper" }) { stock in
+                        Button { paperStock = stock.id } label: {
+                            HStack(spacing: 9) {
+                                Image(systemName: "square.stack.3d.up.fill")
+                                    .font(.system(size: 19))
+                                    .foregroundStyle(filmCardColor(stock.id))
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(stock.chineseName)
+                                        .font(.caption.weight(.semibold))
+                                        .lineLimit(2)
+                                    Text("PRINT PAPER")
+                                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                                        .foregroundStyle(OriginalMobileTheme.muted)
+                                }
+                                Spacer(minLength: 0)
+                                if paperStock == stock.id {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(OriginalMobileTheme.accent)
+                                }
+                            }
+                            .foregroundStyle(OriginalMobileTheme.ink)
+                            .frame(width: 176, height: 65)
+                            .padding(.horizontal, 11)
+                            .background(paperStock == stock.id ? OriginalMobileTheme.accent.opacity(0.18) : Color.white.opacity(0.07),
+                                        in: RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12)
+                                .stroke(paperStock == stock.id ? OriginalMobileTheme.accent : .clear, lineWidth: 1.5))
+                        }
+                        .buttonStyle(.plain)
                     }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
                 }
-                .foregroundStyle(OriginalMobileTheme.ink)
-                .padding(14)
-                .background(OriginalMobileTheme.canvas.opacity(0.55), in: RoundedRectangle(cornerRadius: 7))
+                .padding(.vertical, 5)
             }
-            .buttonStyle(.plain)
             .disabled(scanFilm)
             .opacity(scanFilm ? 0.45 : 1)
             .padding(.bottom, 15)
