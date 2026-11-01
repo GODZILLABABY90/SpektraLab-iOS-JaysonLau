@@ -347,6 +347,14 @@ struct OriginalEngineEditorView: View {
                     .foregroundStyle(OriginalMobileTheme.muted)
             }
             Spacer(minLength: 4)
+            Button { showControlValues.toggle() } label: {
+                Image(systemName: showControlValues ? "number.square.fill" : "number.square")
+                    .font(.system(size: 17))
+                    .frame(width: 38, height: 38)
+                    .background(OriginalMobileTheme.canvas.opacity(0.45), in: RoundedRectangle(cornerRadius: 6))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(showControlValues ? "隐藏参数数值" : "显示参数数值")
             PhotosPicker(selection: $pickedPhoto, matching: .images) {
                 Image(systemName: "square.and.arrow.down.on.square")
                     .font(.system(size: 17, weight: .regular))
