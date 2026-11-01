@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import Photos
 import Foundation
 
 private struct OriginalStock: Identifiable, Hashable {
@@ -264,8 +265,28 @@ struct OriginalEngineEditorView: View {
         }
     }
 
+    private func saveToPhotos(_ image: UIImage) {
+        PHPhotoLibrary.requestAuthorization(for: .addOnly) { authorization in
+            guard authorization == .authorized || authorization == .limited else {
+                DispatchQueue.main.async { status = "失败：未获得照片保存权限" }
+                return
+            }
+            PHPhotoLibrary.shared().performChanges({
+                PHAssetChangeRequest.creationRequestForAsset(from: image)
+            }, completionHandler: { saved, error in
+                DispatchQueue.main.async {
+                    status = saved ? "照片已成功保存到相册" : "失败：保存到相册失败（\\(error?.localizedDescription ?? "未知错误")）"
+                }
+            })
+        }
+    }
+
     private func develop(maxDimension: Int, saveAfter: Bool) {
         guard let source = input, !processing else { return }
+        if saveAfter {
+            pendingPreview?.cancel()
+            previewRevision += 1
+        }
         processing = true
         let revisionAtStart = previewRevision
         status = "正在调用原版光谱渲染引擎…"
@@ -303,8 +324,8 @@ struct OriginalEngineEditorView: View {
                     developed = result
                     showInput = false
                     if saveAfter {
-                        UIImageWriteToSavedPhotosAlbum(result, nil, nil, nil)
-                        status = "原版引擎高清渲染完成，已请求存入相册"
+                        status = "渲染完成，正在保存到相册…"
+                        saveToPhotos(result)
                     } else {
                         status = "原版胶片 / 相纸渲染完成"
                     }
