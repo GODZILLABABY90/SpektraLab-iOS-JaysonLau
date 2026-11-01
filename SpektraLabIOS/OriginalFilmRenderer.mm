@@ -107,6 +107,10 @@ static NSString *SPKEngineError(spk_engine *engine) {
             [image drawInRect:(CGRect){CGPointZero, target}];
         }];
         CGImageRef inputCG = normalized.CGImage;
+        if (!inputCG) {
+            if (error) *error = SPKIosError(@"Could not decode the selected image");
+            return nil;
+        }
         CGImageRef croppedInput = nullptr;
         // Original Film Edge expects the image to have the camera gate's exact
         // aspect ratio. Crop to that gate before opening the native session.
@@ -135,13 +139,12 @@ static NSString *SPKEngineError(spk_engine *engine) {
             }
             const CGRect rect = CGRectMake((sourceW - cropW) / 2, (sourceH - cropH) / 2, cropW, cropH);
             croppedInput = CGImageCreateWithImageInRect(inputCG, rect);
-            if (croppedInput) inputCG = croppedInput;
+            if (!croppedInput) {
+                if (error) *error = SPKIosError(@"Could not crop photo to film gate");
+                return nil;
+            }
+            inputCG = croppedInput;
         }
-        if (!inputCG) {
-            if (error) *error = SPKIosError(@"Could not decode the selected image");
-            return nil;
-        }
-
         const size_t width = CGImageGetWidth(inputCG);
         const size_t height = CGImageGetHeight(inputCG);
         if (width == 0 || height == 0 || width > UINT32_MAX || height > UINT32_MAX) {
