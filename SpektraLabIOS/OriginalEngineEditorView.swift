@@ -131,6 +131,9 @@ struct OriginalEngineEditorView: View {
     @State private var edgeFrameNumber = 0
     @State private var exportDimension = 2048
     @State private var showExportChoices = false
+    @State private var exportToShareSheet = false
+    @State private var shareFile: OriginalShareFile?
+    @State private var showExportDestination = false
     @State private var processing = false
     @State private var exporting = false
     @State private var queuedExport = false
@@ -224,6 +227,21 @@ struct OriginalEngineEditorView: View {
             .sheet(isPresented: $showPaperLibrary) {
                 OriginalStockLibrary(stocks: stocks.filter { $0.support == "paper" },
                                      selection: $paperStock, title: "PRINT · 相纸")
+            }
+            .sheet(item: $shareFile) { file in
+                OriginalShareSheet(url: file.url)
+            }
+            .confirmationDialog("选择导出位置", isPresented: $showExportDestination,
+                                titleVisibility: .visible) {
+                Button("保存到照片") {
+                    exportToShareSheet = false
+                    showExportChoices = true
+                }
+                Button("分享到其他 App / 存储到文件") {
+                    exportToShareSheet = true
+                    showExportChoices = true
+                }
+                Button("取消", role: .cancel) {}
             }
             .confirmationDialog("选择导出像素", isPresented: $showExportChoices,
                                 titleVisibility: .visible) {
@@ -824,6 +842,27 @@ struct OriginalEngineEditorView: View {
         }
     }
 
+    private func shareExport(_ image: UIImage) {
+        // Keep the full-resolution rendered pixels in a lossless file rather
+        // than letting UIActivityViewController choose a lossy representation.
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SpektraLabExports", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: directory,
+                                                    withIntermediateDirectories: true)
+            guard let png = image.pngData() else {
+                status = "失败：无法编码导出 PNG"
+                return
+            }
+            let url = directory.appendingPathComponent(UUID().uuidString + ".png")
+            try png.write(to: url, options: .atomic)
+            shareFile = OriginalShareFile(url: url)
+            status = "高清 PNG 已生成，请选择保存位置"
+        } catch {
+            status = "失败：无法写入导出文件（\(error.localizedDescription)）"
+        }
+    }
+
     private func saveToPhotos(_ image: UIImage) {
         PHPhotoLibrary.requestAuthorization(for: .addOnly) { authorization in
             guard authorization == .authorized || authorization == .limited else {
@@ -856,6 +895,7 @@ struct OriginalEngineEditorView: View {
         let magenta = magentaFilter
         let yellow = yellowFilter
         let exportGrade = postGrade
+        let shareAfter = exportToShareSheet
         let grainFactor: Double
         switch film {
         case "kodak_tri_x_400": grainFactor = 1.70
@@ -946,8 +986,13 @@ struct OriginalEngineEditorView: View {
                     renderedYellow = yellow
                     showInput = false
                     if saveAfter {
-                        status = "渲染完成，正在保存到相册…"
-                        saveToPhotos(result)
+                        if shareAfter {
+                            status = "渲染完成，正在生成 PNG…"
+                            shareExport(result)
+                        } else {
+                            status = "渲染完成，正在保存到相册…"
+                            saveToPhotos(result)
+                        }
                     } else {
                         status = "预览已更新"
                     }
@@ -1027,4 +1072,19 @@ private struct OriginalStockLibrary: View {
             .preferredColorScheme(.dark)
         }
     }
+}
+
+private struct OriginalShareFile: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+private struct OriginalShareSheet: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: [url], applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
