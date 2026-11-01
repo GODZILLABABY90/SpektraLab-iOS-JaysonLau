@@ -782,6 +782,15 @@ struct OriginalEngineEditorView: View {
                     if !editing && activeTab != .post { schedulePreview(immediate: true) }
                 })
                 .tint(OriginalMobileTheme.accent)
+                Button {
+                    value.wrappedValue = min(max(0, range.lowerBound), range.upperBound)
+                } label: {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 11))
+                        .frame(width: 28, height: 32)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("重置" + name)
                 Text(String(format: "%.2f", value.wrappedValue))
                     .font(.system(size: 11, design: .monospaced))
                     .monospacedDigit()
