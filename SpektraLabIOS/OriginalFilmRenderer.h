@@ -9,6 +9,11 @@ NS_ASSUME_NONNULL_BEGIN
                        printStock:(NSString *)printStock
                         enableEdge:(BOOL)enableEdge
                        edgeFormat:(NSString *)edgeFormat
+                         exposureEV:(double)exposureEV
+                        grainAmount:(double)grainAmount
+                     halationAmount:(double)halationAmount
+                           magenta:(double)magenta
+                            yellow:(double)yellow
                      maxDimension:(NSInteger)maxDimension
                             error:(NSError * _Nullable __autoreleasing * _Nullable)error;
 @end
