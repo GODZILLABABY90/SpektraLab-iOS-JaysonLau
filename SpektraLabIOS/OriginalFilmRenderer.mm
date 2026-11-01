@@ -8,6 +8,7 @@
 #include "spektrafilm/spk_engine.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -253,7 +254,17 @@ static NSString *SPKEngineError(spk_engine *engine) {
             CGColorSpaceRelease(srgb);
             return nil;
         }
-        std::vector<uint8_t> output(w * h * 4);
+        // The 4096 px export path can be memory-bound on iPhone. Transfer
+        // ownership of one output allocation to CoreGraphics instead of
+        // copying an entire RGBA frame into a second CFData buffer.
+        const size_t outputBytes = w * h * 4;
+        uint8_t *output = static_cast<uint8_t *>(malloc(outputBytes));
+        if (!output) {
+            if (error) *error = SPKIosError(@"Not enough memory for rendered image");
+            spk_result_free(&result);
+            CGColorSpaceRelease(srgb);
+            return nil;
+        }
         for (size_t y = 0; y < h; ++y) {
             const uint16_t *row = result.rgba16 + y * result.row_stride_px * 4;
             for (size_t x = 0; x < w; ++x) {
@@ -269,9 +280,11 @@ static NSString *SPKEngineError(spk_engine *engine) {
         // Own the pixel storage for the full lifetime of the returned CGImage.
         // A CGBitmapContext backed by a temporary std::vector can otherwise
         // leave CoreGraphics/UIImage referring to freed caller-owned memory.
-        CFDataRef pixelData = CFDataCreate(kCFAllocatorDefault, output.data(),
-                                          static_cast<CFIndex>(output.size()));
+        CFDataRef pixelData = CFDataCreateWithBytesNoCopy(
+            kCFAllocatorDefault, output, static_cast<CFIndex>(outputBytes),
+            kCFAllocatorMalloc);
         if (!pixelData) {
+            free(output);
             CGColorSpaceRelease(srgb);
             if (error) *error = SPKIosError(@"Could not retain output pixels");
             return nil;
