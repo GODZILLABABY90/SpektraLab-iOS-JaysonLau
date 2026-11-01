@@ -1,0 +1,55 @@
+name: Original SpektraLab iOS native engine compatibility
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev/upstream-engine-port]
+  pull_request:
+    branches: [dev/film-presets-v02, main]
+concurrency:
+  group: native-ios-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  compile-original-core-and-pipeline:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile upstream spectral C++ core for iPhoneOS arm64
+        run: bash scripts/probe-upstream-ios.sh
+      - name: Link native iOS dylib against original spectral core
+        if: success()
+        run: bash scripts/link-native-core-ios.sh
+      - name: Compile upstream native pipeline for iPhoneOS arm64
+        if: always()
+        run: bash scripts/probe-upstream-pipeline-ios.sh
+      - name: Compile upstream Metal GPU backend for iPhoneOS arm64
+        if: always()
+        run: bash scripts/probe-upstream-gpu-ios.sh
+      - name: Build original Metal shaders for iPhoneOS
+        if: always()
+        run: bash scripts/probe-upstream-metal-ios.sh
+      - name: Package original iOS core XCFramework
+        if: always()
+        run: |
+          if test -f build/upstream-probe/libspektralab-core-ios.a; then
+            bash scripts/package-upstream-core-ios.sh
+          fi
+      - name: Summarize actual upstream iOS compiler failures
+        if: always()
+        run: bash scripts/report-upstream-ios.sh
+      - name: Upload iOS native build outputs and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-native-ios-compatibility
+          path: |
+            build/UPSTREAM-IOS-REPORT.md
+            build/upstream-revision.txt
+            build/upstream-probe/
+            build/upstream-pipeline-probe/
+            build/upstream-gpu-probe/
+            build/upstream-link-probe/
+            build/upstream-metal-ios/
+          if-no-files-found: warn
