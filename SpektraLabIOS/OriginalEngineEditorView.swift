@@ -254,13 +254,20 @@ struct OriginalEngineEditorView: View {
         let magenta = magentaFilter
         let yellow = yellowFilter
         DispatchQueue.global(qos: .userInitiated).async {
-            var renderError: NSError?
-            let result = OriginalFilmRenderer.renderImage(
+            var failureMessage: String?
+            var renderedImage: UIImage?
+            do {
+                renderedImage = try OriginalFilmRenderer.renderImage(
                 source, filmStock: film, printStock: paper,
                 enableEdge: edges, edgeFormat: format,
                 exposureEV: exposure, grainAmount: grain, halationAmount: halation,
                 magenta: magenta, yellow: yellow,
-                maxDimension: maxDimension, error: &renderError)
+                maxDimension: maxDimension)
+            } catch {
+                failureMessage = error.localizedDescription
+            }
+            let result = renderedImage
+            let renderFailure = failureMessage
             DispatchQueue.main.async {
                 processing = false
                 if let result {
@@ -273,7 +280,7 @@ struct OriginalEngineEditorView: View {
                         status = "原版胶片 / 相纸渲染完成"
                     }
                 } else {
-                    status = "失败：" + (renderError?.localizedDescription ?? "原版引擎无法完成显影")
+                    status = "失败：" + (renderFailure ?? "原版引擎无法完成显影")
                 }
             }
         }
