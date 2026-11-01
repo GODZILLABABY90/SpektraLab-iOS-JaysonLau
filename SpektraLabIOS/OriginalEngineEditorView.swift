@@ -665,16 +665,53 @@ struct OriginalEngineEditorView: View {
         let halation = halationAmount
         let magenta = magentaFilter
         let yellow = yellowFilter
+        let grainFactor: Double
+        switch film {
+        case "kodak_tri_x_400": grainFactor = 1.70
+        case "ilford_hp5_plus_400": grainFactor = 1.49
+        case "kodak_tmax_100": grainFactor = 0.74
+        case "fujifilm_neopan_acros_100_ii": grainFactor = 0.64
+        default: grainFactor = 1
+        }
+        // Keys and ranges match the upstream original FilmParams.wire schema.
+        // A single dictionary is captured with the render snapshot, so a slider
+        // cannot mutate parameters halfway through a native render.
+        let options: [String: Any] = [
+            "print_exposure": pow(2.0, -printBrightness),
+            "preflash_exposure": preflash,
+            "lens_blur_um": lensBlur,
+            "scanner_lens_blur": scannerBlur,
+            "grain_sublayers_active": grainLayered,
+            "grain_amount": min(2, grain * grainFactor),
+            "halation_scatter_amount": halationScatter,
+            "halation_boost_ev": highlightBoost,
+            "halation_headroom_ev": highlightHeadroom,
+            "antihalation_removed": removeAntihalation,
+            "dir_couplers_active": couplersActive,
+            "dir_couplers_amount": couplersAmount,
+            "glare_amount": glareAmount,
+            "extended_dynamic_range": extendedRange,
+            "scan_film": scanFilm,
+            "overscan_active": edges,
+            "overscan_format": format,
+            "overscan_mode": edgeView,
+            "overscan_gate": edgeGate,
+            "overscan_holes": edgeHoles,
+            "overscan_fog": edgeFog,
+            "overscan_leaks": edgeLeaks,
+            "overscan_frame_number": edgeFrameNumber,
+            "overscan_edge_text": stocks.first(where: { $0.id == film })?.name.uppercased() ?? ""
+        ]
         DispatchQueue.global(qos: .userInitiated).async {
             let nativeMessage = NSMutableString(string: "")
-            // Native overscan has caused device crashes. Keep the original
-            // film/paper render and compose a safe border after rendering.
+            // Original engine performs film, paper, grain, halation and overscan.
             let renderedImage = OriginalFilmRenderer.renderImageWithoutThrow(
                 source, filmStock: film, printStock: paper,
                 enableEdge: edges, edgeFormat: format,
                 exposureEV: exposure, grainAmount: grain, halationAmount: halation,
                 magenta: magenta, yellow: yellow,
-                maxDimension: maxDimension, errorMessage: nativeMessage)
+                maxDimension: maxDimension, options: options as NSDictionary,
+                errorMessage: nativeMessage)
             let result = renderedImage
             let renderFailure = nativeMessage.length > 0 ? (nativeMessage as String) : nil
             DispatchQueue.main.async {
@@ -682,7 +719,7 @@ struct OriginalEngineEditorView: View {
                 exporting = false
                 if queuedExport {
                     queuedExport = false
-                    develop(maxDimension: 1600, saveAfter: true)
+                    develop(maxDimension: exportDimension, saveAfter: true)
                     return
                 }
                 if !saveAfter && revisionAtStart != previewRevision {
@@ -712,51 +749,4 @@ struct OriginalEngineEditorView: View {
         }
     }
 
-    // Safe, CPU-drawn border until the upstream overscan Metal path can be
-    // diagnosed on a physical iPhone. Not represented as the original border.
-    private static func safeFilmBorder(_ image: UIImage, format: String,
-                                       filmName: String) -> UIImage {
-        let width = image.size.width
-        let height = image.size.height
-        let landscape = width >= height
-        let band = max(24, min(width, height) * 0.095)
-        let canvas = landscape ? CGSize(width: width, height: height + band * 2)
-                               : CGSize(width: width + band * 2, height: height)
-        let photoRect = landscape ? CGRect(x: 0, y: band, width: width, height: height)
-                                  : CGRect(x: band, y: 0, width: width, height: height)
-        let settings = UIGraphicsImageRendererFormat.default()
-        settings.scale = 1
-        settings.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: canvas, format: settings)
-        return renderer.image { _ in
-            UIColor(red: 0.085, green: 0.075, blue: 0.065, alpha: 1).setFill()
-            UIRectFill(CGRect(origin: .zero, size: canvas))
-            image.draw(in: photoRect)
-            if format.hasPrefix("135") {
-                let length = landscape ? width : height
-                let count = max(4, Int(length / 42))
-                let holeLong = max(9, band * 0.42)
-                let holeShort = max(6, band * 0.26)
-                UIColor(white: 0.76, alpha: 1).setFill()
-                for i in 0..<count {
-                    let along = (CGFloat(i) + 0.5) * length / CGFloat(count)
-                    for side in 0..<2 {
-                        let rect: CGRect
-                        if landscape {
-                            rect = CGRect(x: along - holeLong / 2,
-                                          y: side == 0 ? (band - holeShort) / 2
-                                                       : band + height + (band - holeShort) / 2,
-                                          width: holeLong, height: holeShort)
-                        } else {
-                            rect = CGRect(x: side == 0 ? (band - holeShort) / 2
-                                                       : band + width + (band - holeShort) / 2,
-                                          y: along - holeLong / 2,
-                                          width: holeShort, height: holeLong)
-                        }
-                        UIBezierPath(roundedRect: rect, cornerRadius: holeShort * 0.2).fill()
-                    }
-                }
-            }
-        }
-    }
 }
