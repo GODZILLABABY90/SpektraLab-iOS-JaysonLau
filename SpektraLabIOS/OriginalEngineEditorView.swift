@@ -124,6 +124,7 @@ struct OriginalEngineEditorView: View {
     @State private var previewRevision = 0
     @State private var pendingPreview: Task<Void, Never>?
     @State private var showInput = false
+    @State private var previewZoom = false
     @State private var status = "导入照片，使用原版光谱引擎冲印"
 
     private let edgeOptions: [(String, String)] = [
@@ -265,6 +266,7 @@ struct OriginalEngineEditorView: View {
                     input = photo
                     developed = nil
                     showInput = false
+                    previewZoom = false
                     status = "照片已导入，正在生成预览…"
                     schedulePreview()
                 }
@@ -282,6 +284,7 @@ struct OriginalEngineEditorView: View {
                         .scaledToFit()
                         .brightness(liveBrightness)
                         .colorMultiply(liveTint)
+                        .scaleEffect(previewZoom ? 2.0 : 1.0)
                         .frame(width: area.size.width, height: area.size.height)
                 } else {
                     VStack(spacing: 12) {
@@ -301,6 +304,18 @@ struct OriginalEngineEditorView: View {
                             .padding(.horizontal, 10).padding(.vertical, 6)
                             .background(.black.opacity(0.55), in: Capsule())
                         Spacer()
+                        if activeImage != nil {
+                            Button {
+                                previewZoom.toggle()
+                            } label: {
+                                Label(previewZoom ? "适合屏幕" : "放大颗粒",
+                                      systemImage: previewZoom ? "arrow.down.right.and.arrow.up.left" : "plus.magnifyingglass")
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 9).padding(.vertical, 6)
+                                    .background(.black.opacity(0.65), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
                         if developed != nil {
                             Button {
                                 showInput.toggle()
